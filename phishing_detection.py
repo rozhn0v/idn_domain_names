@@ -284,13 +284,14 @@ def is_phishing_list(dn_list: List[str], ipv4_to_asn_table: str, file: Optional[
             try:
                 xn_idx = punycode_idx(domain)
                 domain_unicode = domain.encode('ascii').decode('idna')
-            except (UnicodeError, IndexError):
+            except (UnicodeError, IndexError) as e:
                 write_to_list_or_file(domain, is_phishing_table, file, False)
-                log.error('Problematic domain:KNOWERROR: {}'.format(domain))
+                log.error('Problematic domain:KNOWNERROR({}): {}'.format(type(e).__name__, domain))
                 continue
             except Exception as e:
+                write_to_list_or_file(domain, is_phishing_table, file, False)
                 log.error('Problematic domain:UNKERROR({}): {}'.format(type(e).__name__, domain))
-                pass
+                continue
         else:
             write_to_list_or_file(domain, is_phishing_table, file, False)
             continue
