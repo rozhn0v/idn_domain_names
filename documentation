@@ -1,0 +1,52 @@
+NAME
+	Phishing Detection
+
+SUMMARY
+	Detect Phishing candidates in a list of domain names coming from a TSV file and writes the output to another file.
+
+VERSION INFO
+	0.1.0
+
+STATUS
+	Testing/Development
+
+INTRODUCTION
+	One of the popular strategies used to deceive the user into accessing a phishing URL is to use IDN (Internationalized Domain Names) that resembles the actual URL to which the user wish to connect.
+	The approach to detect such URLs used in this piece of software is to find all the confusables for each IDN URLs, compare it's ASN (Autonomous System Number) with the confusables, and if it did not match, detect the language of the URL and compare it to the actual HTML language in order to decrease the number of false positives.
+
+DESIGN
+	Step 1. Load required data
+
+	1.	Load the domain names into a list.
+	2.	Load each row of the IPV4 to ASN table into a list.
+	3.	Creates a set containing all the distinct domain names.
+
+	Step 2. Detect phishing candidates
+
+	1.	Iterate over each domain name from the list.
+	2.	Mark as a negative the domain that are not in the punycode format.
+	3.	Convert the punycode domains to IDN format.
+	4.	Find all the confusables for the IDN domain.
+	5.	Find the intersection between the confusables and the domain name set.
+	6.	Find if the items in the intersection set have the same ASN than the punycode domain, and mark it as a negative in the case they have the same ASN.
+	7.	In order to decrease the number of false positives, check if the domain name of both confusable and the IDN are not in english.
+	8.	If the language of the URL and the HTML page matches, and also the language of the confusable and the IDN pages matches, classify it as a negative.
+	9.	Classify the the remaining domains as positive, i.e., a phishing candidate.
+
+	Step 3. Write the results to a csv file.
+
+	1. Write each of the tested domains to a csv file, with the fields, domain name and classification (0 -> negative, 1 -> positive), in that order.
+
+CONFIGURATION
+	Command line parameter:
+		domain_list: The path to the domain list file, in a TSV format, with the domain name in the first field.
+	Command line options (mandatory):
+		output_file (--output or -o): The path to which the output csv file containing the domain names and the classification will be written.
+		ipv4_table (--ipv4toasn or -i): The path to the tsv file containing the IPV4 to ASN table. With the fields, range_start, range_end, AS_number,
+		country_code, AS_description, in that order.
+
+LICENSING
+	None.
+
+OPEN ISSUES
+	1.	The present version focuses on detecting phishing domain names in the english language. Many other languages, such as spanish have accents in the letters, which is normal to be ommited in URLs. When an individual wishes to register a new domain name, and it's already taken, they try to modify it slightly and keep the same message to the user, for example, by correctly adding the accents. Considering that the previously mentioned approach does not always represent the registration of a phishing domain (most of the cases it's not), it's worth to think about how to decrease its false negative ratio.
