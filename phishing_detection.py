@@ -18,7 +18,8 @@ import logging
 logging.basicConfig(
     level=logging.DEBUG,
     format = "[%(asctime)s] %(process)d %(levelname)s %(message)s",
-    datefmt = "%H:%M:%S"
+    datefmt = "%H:%M:%S",
+    filename='domain_logs.log'
 )
 log = logging.getLogger(__name__)
 
