@@ -2,4 +2,6 @@ backup/*
 data/*
 Python_3.8/*
 .idea/*
+__pycache__/*
+phishing.log
 env

@@ -7,6 +7,9 @@ click==7.1.2
 confusables==1.1.1
 db==0.1.1
 db-sqlite3==0.0.1
+gevent==20.5.2
+greenlet==0.4.15
+grequests==0.6.0
 idna==2.9
 joblib==0.14.1
 langdetect==1.0.8
@@ -18,3 +21,5 @@ soupsieve==2.0.1
 textblob==0.15.3
 tqdm==4.46.0
 urllib3==1.25.9
+zope.event==4.4
+zope.interface==5.1.0
