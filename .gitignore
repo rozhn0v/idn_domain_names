@@ -2,3 +2,4 @@ backup/*
 data/*
 Python_3.8/*
 .idea/*
+env
