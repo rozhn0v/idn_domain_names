@@ -4,23 +4,27 @@ import ipaddress
 import re
 import argparse
 import sys
-import requests
-from confusables import normalize
 from itertools import product
 from pathlib import Path
-from typing import Tuple, List, Optional, Iterator
+from typing import Tuple
+from typing import List
+from typing import Optional
+from typing import Iterator
 from collections import Counter
-from bs4 import BeautifulSoup
-from textblob import TextBlob, exceptions
-from langdetect import detect
 import logging
+
+import requests
+from confusables import normalize
+from bs4 import BeautifulSoup
+from textblob import TextBlob
+from textblob import exceptions
+from langdetect import detect
 
 logging.basicConfig(
     level=logging.DEBUG,
-    format = "[%(asctime)s] %(process)d %(levelname)s %(message)s",
-    datefmt = "%H:%M:%S",
-    filename='domain_logs.log'
-)
+    format="[%(asctime)s] %(process)d %(levelname)s %(message)s",
+    datefmt="%H:%M:%S",
+    filename='domain_logs.log')
 log = logging.getLogger(__name__)
 
 
@@ -42,15 +46,24 @@ def parse_args() -> Tuple[str, str, str]:
     """
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('domain_list',
-                        help='The path to the file containing the list of domain to be analyzed (TSV format).',
-                        type=str, default=sys.stdin)
-    parser.add_argument('-o', '--output', dest='output_file',
-                        help='The path in which the output file will be created.',
-                        type=str, required=True)
-    parser.add_argument('-i', '--ipv4toasn', dest='ipv4_table',
+    parser.add_argument(
+        'domain_list',
+        help='The path to the TSV file containing the domains to be analyzed.',
+        type=str,
+        default=sys.stdin)
+    parser.add_argument(
+        '-o',
+        '--output',
+        dest='output_file',
+        help='The path in which the output file will be created.',
+        type=str,
+        required=True)
+    parser.add_argument('-i',
+                        '--ipv4toasn',
+                        dest='ipv4_table',
                         help='The path to the IPV4 to ASN table (TSV format).',
-                        type=str, required=True)
+                        type=str,
+                        required=True)
 
     args = parser.parse_args()
 
@@ -119,7 +132,8 @@ def get_ip_and_asn(hostname: str, ipv4_table: List[List[str]]) \
     return ip_obj, asn, country
 
 
-def write_to_list_or_file(domain: str, is_phishing_list: List[int], file: Optional[str], is_phishing: bool) -> None:
+def write_to_list_or_file(domain: str, is_phishing_list: List[int],
+                          file: Optional[str], is_phishing: bool) -> None:
     """
     Writes the domain and is_phishing value to a file in a csv (comma separated values) format, if file is given,
     if file is None, appends is_phishing to is_phishing_list list.
@@ -214,7 +228,8 @@ def domain_language(dn_unicode: str, xn_idx: List[int]) -> Optional[str]:
     lang_counter = Counter()
     for idx in xn_idx:
         try:
-            lang_opts = (TextBlob(dn_list[idx]).detect_language(), detect(dn_list[idx]))
+            lang_opts = (TextBlob(dn_list[idx]).detect_language(),
+                         detect(dn_list[idx]))
             lang = None
             for lang_opt in lang_opts:
                 if lang_opt != 'en':
@@ -237,7 +252,9 @@ def domain_language(dn_unicode: str, xn_idx: List[int]) -> Optional[str]:
         return None
 
 
-def is_phishing_list(dn_list: List[str], ipv4_to_asn_table: str, file: Optional[str] = None) -> Optional[List[int]]:
+def is_phishing_list(dn_list: List[str],
+                     ipv4_to_asn_table: str,
+                     file: Optional[str] = None) -> Optional[List[int]]:
     """
     Writes to a csv file, defined by the global variable PHISHINGFILE, the results
     from the phishing detection routine, if file is provided. If not, returns a list
@@ -287,11 +304,13 @@ def is_phishing_list(dn_list: List[str], ipv4_to_asn_table: str, file: Optional[
                 domain_unicode = domain.encode('ascii').decode('idna')
             except (UnicodeError, IndexError) as e:
                 write_to_list_or_file(domain, is_phishing_table, file, False)
-                log.error('Problematic domain:KNOWNERROR({}): {}'.format(type(e).__name__, domain))
+                log.error('Problematic domain:KNOWNERROR({}): {}'.format(
+                    type(e).__name__, domain))
                 continue
             except Exception as e:
                 write_to_list_or_file(domain, is_phishing_table, file, False)
-                log.error('Problematic domain:UNKERROR({}): {}'.format(type(e).__name__, domain))
+                log.error('Problematic domain:UNKERROR({}): {}'.format(
+                    type(e).__name__, domain))
                 continue
         else:
             write_to_list_or_file(domain, is_phishing_table, file, False)
@@ -323,9 +342,11 @@ def is_phishing_list(dn_list: List[str], ipv4_to_asn_table: str, file: Optional[
                     url_lang = 'en'
                 try:
                     domain_lang = BeautifulSoup(
-                        requests.get('http://' + domain).content, 'html.parser').html.get('lang')
+                        requests.get('http://' + domain).content,
+                        'html.parser').html.get('lang')
                     homo_lang = BeautifulSoup(
-                        requests.get('http://' + homo_domain).content, 'html.parser').html.get('lang')
+                        requests.get('http://' + homo_domain).content,
+                        'html.parser').html.get('lang')
                     if domain_lang is None:
                         if homo_lang is not None:
                             domain_lang = homo_lang
@@ -334,8 +355,10 @@ def is_phishing_list(dn_list: List[str], ipv4_to_asn_table: str, file: Optional[
                     else:
                         if homo_lang is None:
                             homo_lang = domain_lang
-                    domain_lang = re.search(r'[a-zA-Z]{2}', domain_lang).group(0).lower()
-                    homo_lang = re.search(r'[a-zA-Z]{2}', homo_lang).group(0).lower()
+                    domain_lang = re.search(r'[a-zA-Z]{2}',
+                                            domain_lang).group(0).lower()
+                    homo_lang = re.search(r'[a-zA-Z]{2}',
+                                          homo_lang).group(0).lower()
                 except (AttributeError, requests.exceptions.ConnectionError):
                     false_true_counter[1] += 1
                     continue
