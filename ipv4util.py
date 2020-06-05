@@ -44,15 +44,15 @@ class Ipv4AWrapper:
         else:
             return self._ip < rhs._ip
 
-    def __le__(self, other):
-        if not self._ip and not other._ip:
+    def __le__(self, rhs):
+        if not self._ip and not rhs._ip:
             return self._end <= rhs._begin
-        elif not self._ip and other._ip:
-            return self._begin <= other._ip
-        elif self._ip and not other._ip:
-            return self._ip <= other._begin
+        elif not self._ip and rhs._ip:
+            return self._begin <= rhs._ip
+        elif self._ip and not rhs._ip:
+            return self._ip <= rhs._begin
         else:
-            return self._ip <= other._ip
+            return self._ip <= rhs._ip
 
     def __str__(self):
         if not self._ip:
