@@ -30,8 +30,8 @@ class Domain:
         Returns
         -------
         domain_language : str
-            The most occurring language in the domain name, with a penalty to english
-            language.
+            The most occurring language in the domain name, with a penalty to
+            english language.
 
         """
         dn_list = self._fqdn.split('.')
@@ -65,14 +65,14 @@ class Domain:
     # TODO make private
     def punycode_idx(self) -> List[int]:
         """
-        Generates a list containing the indexes of the valid punycode in the domain name,
-        considering the '.' (dot) as a field separator.
+        Generates a list containing the indexes of the valid punycode
+        in the domain name, considering the '.' (dot) as a field separator.
 
         Returns
         -------
         xn_list : list of int
-            A list containing the indexes of the domain name, in a dot-separated fashion, where
-            valid punycode can be found.
+            A list containing the indexes of the domain name,
+            in a dot-separated fashion, where valid punycode can be found.
         """
 
         dn_split = self._fqdn.split('.')
@@ -94,22 +94,25 @@ class Domain:
     def maybe_truncate_www(self) -> Domain:
         return Domain(self._fqdn.lstrip('www.'))
 
-    def to_idna(self) -> Domain:
-        fqdn = self._fqdn.encode('acsii').decode('idna')
+    def to_unicode(self) -> Domain:
+        fqdn = self._fqdn.encode('ascii').decode('idna')
         return Domain(fqdn)
 
     def normalize_wrap(self, xn_idx: List[int]) -> Set[Domain]:
         """
-        Generator to a series of possible confusion domain names for the given dn_unicode.
+        Generator to a series of possible confusion domain names for the given
+        dn_unicode.
 
         Parameters
         ----------
         xn_idx : list of int
-            Indexes of the valid punycode, considering the dot as a field separator.
+            Indexes of the valid punycode, considering the dot as a field
+            separator.
 
         Returns
         -------
-        An generator of the possible confusions for the given dn_unicode, domain name.
+        An generator of the possible confusions for the given dn_unicode,
+        domain name.
         """
 
         dn_split = self._fqdn.split('.')
@@ -123,20 +126,22 @@ class Domain:
     def correct_accent_equal(self, homo_domain: Domain,
                              xn_idx: List[int]) -> bool:
         """
-            Check for domains with equivalent meaning taking into consideration the lack of correct accentuation
-            in one of the cases.
+            Check for domains with equivalent meaning taking into consideration
+            the lack of correct accentuation in one of the cases.
 
             Parameters
             ----------
             homo_domain : Domain
                 Homoglyph domain of domain_unicode.
             xn_idx : list of int
-                Indexes of the valid punycode, considering the dot as a field separator.
+                Indexes of the valid punycode, considering the dot as a field
+                separator.
 
             Returns
             -------
             bool
-                True, if the domains are probably from the same language but one is lacking of accentuation.
+                True, if the domains are probably from the same language
+                but one is lacking of accentuation.
                 Otherwise, False.
         """
         not_equivalent = 0

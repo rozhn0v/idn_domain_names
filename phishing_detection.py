@@ -6,26 +6,24 @@ import logging
 import re
 import socket
 import sys
-import time
 from _io import TextIOWrapper
 from pathlib import Path
 from typing import Iterator
 from typing import List
 from typing import Optional
 from typing import Set
-from typing import Tuple
 from typing import Union
 
 import grequests
 import requests
 from bs4 import BeautifulSoup
 
+import ipv4util
 from domain import Domain
 from ipv4util import Ipv4AWrapper
-from ipv4util import binary_search_ip
 
 log = logging.getLogger(__name__)
-log.setLevel(logging.WARNING)
+log.setLevel(logging.DEBUG)
 formatter = logging.Formatter(
     fmt="[%(asctime)s] %(process)d %(levelname)s %(message)s",
     datefmt='%H:%M:%S')
@@ -36,15 +34,18 @@ log.addHandler(file_handler)
 
 def parse_args() -> argparse.Namespace:
     """
-    Parse the command line parameters and options.The options are "domain-list", which is the path to the
-    tsv file containinga list of domain names, "output" which is the path to the file to store the
-    detection results and ipv4toasn, which is the path to the file containing the IPV4 to ASN table, and the
-    the phishingtargets, which is a tsv file containing the phishing targeted domains.
+    Parse the command line parameters and options. The options are
+    "domain-list",which is the path to the tsv file containinga list of domain
+    names, "output" which is the path to the file to store the detection
+    results and ipv4toasn, which is the path to the file containing the IPV4
+    to ASN table, and the the phishingtargets, which is a tsv file containing
+    the phishing targeted domains.
 
     Returns
     -------
     args : argparse.Namespace of str
-        Contains the fields: domain_list, output_file, ipv4_table and phishing_targets, in that order.
+        Contains the fields: domain_list, output_file, ipv4_table
+        and phishing_targets, in that order.
     """
 
     parser = argparse.ArgumentParser()
@@ -52,8 +53,7 @@ def parse_args() -> argparse.Namespace:
         '-d',
         '--domain-list',
         dest='domain_list',
-        help=
-        'The path to the file containing the list of domain to be analyzed (TSV format).',
+        help='The path to the tsv file containing domains to be analyzed.',
         type=str,
         default=sys.stdin)
     parser.add_argument(
@@ -100,7 +100,7 @@ def load_phishing_targets(filename: str) -> Set[Domain]:
             domain = Domain(line[1] + '.')
             domain = domain.maybe_truncate_www()
             if domain.is_idna():
-                domain = domain.to_idna()
+                domain = domain.to_unicode()
                 result.add(domain)
     return result
 
@@ -112,7 +112,8 @@ def read_datafile(datafile: str) -> Iterator[Domain]:
     Parameters
     ----------
     datafile : str
-        The path to the tsv file containing the list of domain names to be classified.
+        The path to the tsv file containing the list of domain names to be
+        classified.
 
     Returns
     -------
@@ -128,67 +129,12 @@ def read_datafile(datafile: str) -> Iterator[Domain]:
         yield Domain(line[0])
 
 
-def load_ipv4_table(file_path: str) -> List[Ipv4AWrapper]:
-    """
-    Loads the IPV4 to ASN table into a python list
-
-    Parameters
-    ----------
-    file_path : str
-        Path for the IPV4 to ASN table, the table has a tsv (tab separated value format,
-        and contains the fields:  range_start, range_end, AS_number, country_code and AS_description,
-        in the given order. The table originally used in the code was taken from https://iptoasn.com/.
-
-    Returns
-    -------
-    ipv4_table : list of list of str
-        The table mapped to a python list.
-    """
-    ipv4_table = []
-    with open(file_path, 'r') as csvfile:
-        csv_obj = csv.reader(csvfile, delimiter='\t')
-        for row in csv_obj:
-            ip_wrapper_obj = Ipv4AWrapper(*row[:4])
-            ipv4_table.append(ip_wrapper_obj)
-    ipv4_table.sort()
-    return ipv4_table
-
-
-def get_ip_and_asn(hostname: Domain, ipv4_table: List[Ipv4AWrapper]) \
-        -> Tuple[Ipv4AWrapper, Optional[str], Optional[str]]:
-    """
-    Get the IP address and AS number of the given hostname. ASN number returns None if not found.
-
-    Parameters
-    ----------
-    hostname : Domain
-        The host/domain name.
-    ipv4_table : list of list of str
-        The IPV4 to ASN table in the list format. In the order: [:][0] - range_start,
-        [:][1] - range_end, [:][2] - AS_number, [:][3] - country_code, [:][4] - AS_description.
-
-    Returns
-    -------
-    ip_obj : ipaddress.IPv4Address
-        A wrapper object for the ip address, with comparative operations, i.e., less-equal,
-        equal, less, greater, greater-equal.
-    asn : str or None
-         AS number of the given hostname.
-    """
-    ip = hostname.get_ip()
-    ip_obj = Ipv4AWrapper(single_ip=ipaddress.IPv4Address(ip))
-    match_obj = binary_search_ip(ipv4_table, ip_obj)
-    if match_obj:
-        return ip_obj, match_obj.asn, match_obj.country
-    else:
-        return ip_obj, None, None
-
-
 def write_to_list_or_file(domain: Domain, phishing_list: List[int],
                           file: Optional[str], is_phishing: bool) -> None:
     """
-    Writes the domain and is_phishing value to a file in a csv (comma separated values) format, if file is given,
-    if file is None, appends is_phishing to phishing_list list.
+    Writes the domain and is_phishing value to a file in a csv (comma separated
+    values) format, if file is given, if file is None, appends is_phishing
+    to phishing_list list.
 
     Parameters
     ----------
@@ -197,10 +143,12 @@ def write_to_list_or_file(domain: Domain, phishing_list: List[int],
     phishing_list : list of int
         A list where the is_phishing value will be appended.
     file : str or None
-        If file is a str, i.e, a valid path to a file, the information will be written to a file,
-        if None, the is_phishing value will be appended to phishing_list.
+        If file is a str, i.e, a valid path to a file, the information will be
+        written to a file, if None, the is_phishing value will be appended
+        to phishing_list.
     is_phishing : bool
-        Contains the information whether the given domain is a phishing candidate or not.
+        Contains the information whether the given domain is a phishing
+        candidate or not.
     """
     if file:
         with open(file, 'a+') as f:
@@ -221,67 +169,58 @@ def is_phishing_list(datafile: Union[str, TextIOWrapper],
                      phishing_targets_file: str,
                      file: Optional[str] = None) -> Optional[List[int]]:
     """
-    Classify the provided domains in the datafile tsv file list which domains are suspicious to be a phishing domain
-    from the phishing detection routine, if file is provided. If not, returns a list is_phishing_list
-    containing the results.
+    Classify the provided domains in the datafile tsv file list which domains
+    are suspicious to be a phishing domain from the phishing detection routine,
+    if file is provided. If not, returns a list is_phishing_list containing
+    the results.
 
     Parameters
     ----------
     datafile : str or sys.stdin
-        The path to the datafile containing the list of domains to be investigated.
+        The path to the datafile containing the list of domains
+        to be investigated.
     ipv4_table: str
-        The path for the ipv4 to asn table in the tsv format. It contains the fields, range_start, range_end,
-        AS_number, country_code, AS_description, in that order.
+        The path for the ipv4 to asn table in the tsv format.
+        It contains the fields, range_start, range_end,AS_number, country_code,
+        AS_description, in that order.
     phishing_targets_file : str
         The path to the tsv containing the phishing targeted domains' list.
     file : str or None
-        A valid file path in which to write the results of the phishing detection, in a csv
-        (comma separated value) format. If None, the detection results will be written to
-        is_phishing_list list.
+        A valid file path in which to write the results of the phishing
+        detection, in a csv (comma separated value) format. If None,
+        the detection results will be written to is_phishing_list list.
 
     Returns
     -------
     is_phishing_list : list of int or None
-        If a valid file path is provided, returns None and writes the results to a csv file
-        defined in the global variable PHISHINGFILE, if None, returns a list containing the results of the
-        detection routine.
+        If a valid file path is provided, returns None and writes the results
+        to a csv file defined in the global variable PHISHINGFILE, if None,
+        returns a list containing the results of the detection routine.
 
     """
-    begin = time.time()
     phishing_targets = load_phishing_targets(phishing_targets_file)
-    ipv4_to_asn_table = load_ipv4_table(ipv4_table)
+    ip_table = ipv4util.load_ipv4_table(ipv4_table)
     is_phishing_table = []
     _delete_if_present(file)
     domains_to_check = read_datafile(datafile)
     for domain in domains_to_check:
-        if domain.is_idna():
-            try:
-                std_domain = domain.maybe_truncate_www()
-                xn_idx = std_domain.punycode_idx()
-                domain_unicode = std_domain.to_idna()
-            except (UnicodeError, IndexError) as e:
-                write_to_list_or_file(domain, is_phishing_table, file, False)
-                log.error('KNOWNERROR({}): Domain: {}'.format(
-                    type(e).__name__, domain))
-                continue
-            except Exception as e:
-                write_to_list_or_file(domain, is_phishing_table, file, False)
-                log.error('UNKERROR({}): Domain: {}'.format(
-                    type(e).__name__, domain))
-                continue
-        else:
-            write_to_list_or_file(domain, is_phishing_table, file, False)
+        if not domain.is_idna():
             continue
+
+        domain_unicode, xn_idx = _index_and_convert_silently(domain)
+        if (domain_unicode, xn_idx) == (None, None):
+            continue
+
         homoglyph_domains = domain_unicode.normalize_wrap(xn_idx)
         homoglyph_domains = phishing_targets.intersection(homoglyph_domains)
         false_true_counter = [0] * 2
-        # If a domain is phishing, there possibly be more domains with different ASN than the same.
-        # though, two domains could belong to the same ASN and one could be phishing,
+        # If a domain is phishing, there possibly be more domains with
+        # different ASN than the same. though, two domains could belong
+        # to the same ASN and one could be phishing,
         # if the ASN is of a ISP (not explored)
         for homo_domain in homoglyph_domains:
             try:
-                domain_ip, domain_asn, _ = get_ip_and_asn(
-                    domain, ipv4_to_asn_table)
+                domain_ip, domain_asn = ip_table.get_ip_and_asn(domain)
             except (socket.gaierror, ipaddress.AddressValueError) as e:
                 log.error('KNOWNERROR({}): Domain: {}'.format(
                     type(e).__name__, domain))
@@ -289,8 +228,8 @@ def is_phishing_list(datafile: Union[str, TextIOWrapper],
                                       False)  # False or true ?
                 continue
             try:
-                homoglyph_ip, homoglyph_asn, _ = get_ip_and_asn(
-                    homo_domain, ipv4_to_asn_table)
+                homoglyph_ip, homoglyph_asn = ip_table.get_ip_and_asn(
+                    homo_domain)
             except (socket.gaierror, ipaddress.AddressValueError) as e:
                 log.error('KNOWNERROR({}): Homoglyph: {}'.format(
                     type(e).__name__, homo_domain))
@@ -325,26 +264,41 @@ def is_phishing_list(datafile: Union[str, TextIOWrapper],
                             type(e).__name__, domain, homo_domain))
                     false_true_counter[0] += 1
                     continue
-                if domain_html_lang == homo_html_lang and domain_lang != homo_lang:
+                if domain_html_lang == homo_html_lang \
+                        and domain_lang != homo_lang:
                     correct_dn_equal = domain_unicode.correct_accent_equal(
                         homo_domain, xn_idx)
                     if correct_dn_equal:
                         false_true_counter[0] += 1
                     else:
                         false_true_counter[1] += 1
-                elif domain_html_lang == homo_html_lang and domain_lang == homo_lang:
+                elif domain_html_lang == homo_html_lang \
+                        and domain_lang == homo_lang:
                     false_true_counter[0] += 1
-                elif domain_html_lang != homo_html_lang and domain_lang == homo_lang:
+                elif domain_html_lang != homo_html_lang \
+                        and domain_lang == homo_lang:
                     false_true_counter[1] += 1
                 else:
                     false_true_counter[1] += 1
         is_phishing = false_true_counter[0] < false_true_counter[1]
         write_to_list_or_file(domain, is_phishing_table, file, is_phishing)
-    print('Total time: %.5f' % (time.time() - begin))
     if file:
         return None
     else:
         return is_phishing_table
+
+
+def _index_and_convert_silently(domain: Domain) -> (Optional[Domain],
+                                                    Optional[List[int]]):
+    try:
+        std_domain = domain.maybe_truncate_www()
+        xn_idx = std_domain.punycode_idx()
+        domain_unicode = std_domain.to_unicode()
+        return domain_unicode, xn_idx
+    except UnicodeError:
+        log.debug(
+            'failed to convert {}, report as non-phishing'.format(domain))
+        return None, None
 
 
 def _delete_if_present(file: Optional[str]):

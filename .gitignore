@@ -5,6 +5,3 @@ Python_3.8/*
 __pycache__/*
 phishing.log
 env
-*.gz
-*.dat
-*.tsv
