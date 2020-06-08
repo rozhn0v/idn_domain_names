@@ -3,9 +3,7 @@ from __future__ import annotations
 import csv
 import ipaddress
 from ipaddress import IPv4Address
-from typing import List
-from typing import Optional
-from typing import Tuple
+from typing import List, Optional, Tuple
 
 from domain import Domain
 
@@ -25,7 +23,7 @@ class Ipv4AWrapper:
         if not single_ip:
             self._begin = IPv4Address(range_begin)
             self._end = IPv4Address(range_end)
-            if not self._begin <= self._end:
+            if self._begin > self._end:
                 raise ValueError(
                     'range_begin must be less or equal than range_end.')
             self._asn = as_number
@@ -40,38 +38,34 @@ class Ipv4AWrapper:
     def __eq__(self, rhs):
         if not self._ip and not rhs._ip:
             return self._begin == rhs._begin and self._end == rhs._end
-        elif not self._ip and rhs._ip:
+        if not self._ip and rhs._ip:
             return self._begin <= rhs._ip <= self._end
-        elif self._ip and not rhs._ip:
+        if self._ip and not rhs._ip:
             return rhs._begin <= self._ip <= rhs._end
-        else:
-            return self._ip == rhs._ip
+        return self._ip == rhs._ip
 
     def __lt__(self, rhs):
         if not self._ip and not rhs._ip:
             return self._end < rhs._begin
-        elif not self._ip and rhs._ip:
+        if not self._ip and rhs._ip:
             return self._begin < rhs._ip
-        elif self._ip and not rhs._ip:
+        if self._ip and not rhs._ip:
             return self._ip < rhs._begin
-        else:
-            return self._ip < rhs._ip
+        return self._ip < rhs._ip
 
     def __le__(self, rhs):
         if not self._ip and not rhs._ip:
             return self._end <= rhs._begin
-        elif not self._ip and rhs._ip:
+        if not self._ip and rhs._ip:
             return self._begin <= rhs._ip
-        elif self._ip and not rhs._ip:
+        if self._ip and not rhs._ip:
             return self._ip <= rhs._begin
-        else:
-            return self._ip <= rhs._ip
+        return self._ip <= rhs._ip
 
     def __str__(self):
         if not self._ip:
             return str(self._begin) + ' - ' + str(self._end)
-        else:
-            return str(self._ip)
+        return str(self._ip)
 
     @property
     def asn(self):
@@ -90,7 +84,7 @@ class Ipv4AWrapper:
         return self._country
 
     @property
-    def ip(self):
+    def ip(self):  # pylint: disable=invalid-name
         return self._ip
 
 
@@ -124,12 +118,12 @@ def load_ipv4_table(file_path: str) -> IpTable:
     return IpTable(ipv4_table)
 
 
-class IpTable:
+class IpTable:  # pylint: disable=too-few-public-methods
     def __init__(self, delegate: List[Ipv4AWrapper]):
         self._delegate = delegate
 
-    def get_ip_and_asn(self,
-                       hostname: Domain) -> Tuple[Ipv4AWrapper, Optional[str]]:
+    def get_ip_and_asn(self, hostname: Domain) -> \
+            Tuple[Optional[Ipv4AWrapper], Optional[str]]:
         """
         Get the IP address and AS number of the given hostname.
         ASN number returns None if not found.
@@ -147,13 +141,15 @@ class IpTable:
         asn : str or None
              AS number of the given hostname.
         """
-        ip = hostname.get_ip()
-        ip_obj = Ipv4AWrapper(single_ip=ipaddress.IPv4Address(ip))
+        address = hostname.get_ip()
+        if not address:
+            return None, None
+
+        ip_obj = Ipv4AWrapper(single_ip=ipaddress.IPv4Address(address))
         match_obj = self._search(ip_obj)
         if match_obj:
             return ip_obj, match_obj.asn
-        else:
-            return ip_obj, None
+        return ip_obj, None
 
     def _search(self, elem: Ipv4AWrapper) -> Optional[Ipv4AWrapper]:
         """
@@ -177,7 +173,7 @@ class IpTable:
         while low <= high:
             if self._delegate[mid] == elem:
                 return self._delegate[mid]
-            elif self._delegate[mid] > elem:
+            if self._delegate[mid] > elem:
                 high = mid - 1
             else:
                 low = mid + 1

@@ -1,22 +1,20 @@
 from __future__ import annotations
 
 import socket
+import typing
 from collections import Counter
 from itertools import product
-from typing import List
-from typing import Optional
-from typing import Set
+from typing import List, Optional, Set
 
 import langdetect
 from confusables import normalize
-from textblob import TextBlob
-from textblob import exceptions
+from textblob import TextBlob, exceptions
 
 
 class Domain:
     def __init__(self, fqdn: str):
         if not fqdn.endswith('.'):
-            raise ValueError('%s must end with dot'.format(fqdn))
+            raise ValueError('%s must end with dot' % fqdn)
         self._fqdn = fqdn
 
     # TODO do not pass xn_idx
@@ -35,7 +33,7 @@ class Domain:
 
         """
         dn_list = self._fqdn.split('.')
-        lang_counter = Counter()
+        lang_counter = Counter()  # type: typing.Counter[str]
         for idx in xn_idx:
             try:
                 lang_opt = TextBlob(dn_list[idx]).detect_language()
@@ -55,12 +53,10 @@ class Domain:
             most_common_lang = lang_counter.most_common(2)
             if most_common_lang[0][0] == 'en':
                 return most_common_lang[1][0]
-            else:
-                return most_common_lang[0][0]
-        elif len(lang_counter) == 1:
+            return most_common_lang[0][0]
+        if len(lang_counter) == 1:
             return lang_counter.most_common()[0][0]
-        else:
-            return None
+        return None
 
     # TODO make private
     def punycode_idx(self) -> List[int]:
@@ -88,8 +84,11 @@ class Domain:
     def get_label(self, i: int) -> str:
         return self._fqdn.split('.')[i]
 
-    def get_ip(self):
-        return socket.gethostbyname(self._fqdn)
+    def get_ip(self) -> Optional[str]:
+        try:
+            return socket.gethostbyname(self._fqdn)
+        except (socket.gaierror, UnicodeError):
+            return None
 
     def maybe_truncate_www(self) -> Domain:
         return Domain(self._fqdn.lstrip('www.'))
@@ -118,9 +117,9 @@ class Domain:
         dn_split = self._fqdn.split('.')
         for i in xn_idx:
             dn_split[i] = normalize(dn_split[i])
-        dn_split = map(lambda x: x if isinstance(x, list) else [x], dn_split)
-        dn_iter = map(lambda x: '.'.join(x), product(*dn_split))
-        return set([Domain(dn) for dn in dn_iter if dn != self._fqdn])
+        dn_lists = map(lambda x: x if isinstance(x, list) else [x], dn_split)
+        dn_iter = map('.'.join, product(*dn_lists))
+        return {Domain(dn) for dn in dn_iter if dn != self._fqdn}
 
     # TODO do not pass xn_idx
     def correct_accent_equal(self, homo_domain: Domain,
@@ -165,24 +164,22 @@ class Domain:
                 else:
                     if translation == domain_blob:
                         continue
-                    else:
-                        not_equivalent = 1
-                        break
+                    not_equivalent = 1
+                    break
             except exceptions.TranslatorError:
                 not_equivalent = 1
                 break
             else:
                 if translation == homo_blob:
                     continue
-                else:
-                    not_equivalent = 1
+                not_equivalent = 1
         return not not_equivalent
 
     def __hash__(self) -> int:
         return hash(self._fqdn)
 
     def __eq__(self, o: object) -> bool:
-        return (type(o) is Domain) and (self._fqdn == o._fqdn)
+        return (isinstance(o, Domain)) and (self._fqdn == o._fqdn)
 
     def __str__(self) -> str:
         return self._fqdn
