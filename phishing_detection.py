@@ -52,7 +52,8 @@ def parse_args() -> argparse.Namespace:
         '-d',
         '--domain-list',
         dest='domain_list',
-        help='The path to the file containing the list of domain to be analyzed (TSV format).',
+        help=
+        'The path to the file containing the list of domain to be analyzed (TSV format).',
         type=str,
         default=sys.stdin)
     parser.add_argument(
@@ -79,7 +80,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_phishing_targets(filename: str) -> Iterator[Domain]:
+def load_phishing_targets(filename: str) -> Set[Domain]:
     """
     Creates a generator to the zipped phishing target list (tsv format).
 
@@ -92,10 +93,16 @@ def load_phishing_targets(filename: str) -> Iterator[Domain]:
     -------
     Generator of the phishing target list.
     """
+    result = set()
     with gzip.open(filename, 'rt') as f:
         tsv_f = csv.reader(f, delimiter='\t')
         for line in tsv_f:
-            yield Domain(line[1] + '.')
+            domain = Domain(line[1] + '.')
+            domain = domain.maybe_truncate_www()
+            if domain.is_idna():
+                domain = domain.to_idna()
+                result.add(domain)
+    return result
 
 
 def read_datafile(datafile: str) -> Iterator[Domain]:
@@ -211,7 +218,7 @@ def write_to_list_or_file(domain: Domain, phishing_list: List[int],
 
 def is_phishing_list(datafile: Union[str, TextIOWrapper],
                      ipv4_table: str,
-                     phishing_targets: str,
+                     phishing_targets_file: str,
                      file: Optional[str] = None) -> Optional[List[int]]:
     """
     Classify the provided domains in the datafile tsv file list which domains are suspicious to be a phishing domain
@@ -225,7 +232,7 @@ def is_phishing_list(datafile: Union[str, TextIOWrapper],
     ipv4_table: str
         The path for the ipv4 to asn table in the tsv format. It contains the fields, range_start, range_end,
         AS_number, country_code, AS_description, in that order.
-    phishing_targets : str
+    phishing_targets_file : str
         The path to the tsv containing the phishing targeted domains' list.
     file : str or None
         A valid file path in which to write the results of the phishing detection, in a csv
@@ -241,26 +248,12 @@ def is_phishing_list(datafile: Union[str, TextIOWrapper],
 
     """
     begin = time.time()
-    phishing_target_set = set()  # type: Set[Domain]
-    phishing_targets_gen = load_phishing_targets(phishing_targets)
-    for phishing_target in phishing_targets_gen:
-        phishing_target = phishing_target.maybe_truncate_www()
-        if phishing_target.is_idna():
-            try:
-                idna = phishing_target.to_idna()
-                phishing_target_set.add(idna)
-            except (UnicodeError, IndexError):
-                pass
-        else:
-            phishing_target_set.add(phishing_target)
+    phishing_targets = load_phishing_targets(phishing_targets_file)
     ipv4_to_asn_table = load_ipv4_table(ipv4_table)
     is_phishing_table = []
-    if file:
-        file_obj = Path(file)
-        if file_obj.exists():
-            file_obj.unlink()
-    domain_gen = read_datafile(datafile)
-    for domain in domain_gen:
+    _delete_if_present(file)
+    domains_to_check = read_datafile(datafile)
+    for domain in domains_to_check:
         if domain.is_idna():
             try:
                 std_domain = domain.maybe_truncate_www()
@@ -279,18 +272,13 @@ def is_phishing_list(datafile: Union[str, TextIOWrapper],
         else:
             write_to_list_or_file(domain, is_phishing_table, file, False)
             continue
-        try:
-            homoglyphs_set = set(domain_unicode.normalize_wrap(xn_idx))
-        except ValueError as e:
-            log.error('KNOWNERROR({}): IDN: {}'.format(
-                type(e).__name__, domain_unicode))
-            homoglyphs_set = set()
-        homoglyphs_set = phishing_target_set.intersection(homoglyphs_set)
+        homoglyph_domains = domain_unicode.normalize_wrap(xn_idx)
+        homoglyph_domains = phishing_targets.intersection(homoglyph_domains)
         false_true_counter = [0] * 2
         # If a domain is phishing, there possibly be more domains with different ASN than the same.
         # though, two domains could belong to the same ASN and one could be phishing,
         # if the ASN is of a ISP (not explored)
-        for homo_domain in homoglyphs_set:
+        for homo_domain in homoglyph_domains:
             try:
                 domain_ip, domain_asn, _ = get_ip_and_asn(
                     domain, ipv4_to_asn_table)
@@ -313,10 +301,8 @@ def is_phishing_list(datafile: Union[str, TextIOWrapper],
             if domain_asn == homoglyph_asn:
                 false_true_counter[0] += 1
             else:
-                domain_lang = domain_unicode.domain_language(xn_idx)
+                domain_lang = domain_unicode.domain_language(xn_idx) or 'en'
                 homo_lang = homo_domain.domain_language(xn_idx)
-                if domain_lang is None:
-                    domain_lang = 'en'
                 try:
                     domain_html_lang = _get_lang_by_ip(domain_ip)
                     homo_html_lang = _get_lang_by_ip(homoglyph_ip)
@@ -352,16 +338,20 @@ def is_phishing_list(datafile: Union[str, TextIOWrapper],
                     false_true_counter[1] += 1
                 else:
                     false_true_counter[1] += 1
-        if false_true_counter[0] >= false_true_counter[1]:
-            is_phishing = False
-        else:
-            is_phishing = True
+        is_phishing = false_true_counter[0] < false_true_counter[1]
         write_to_list_or_file(domain, is_phishing_table, file, is_phishing)
     print('Total time: %.5f' % (time.time() - begin))
     if file:
         return None
     else:
         return is_phishing_table
+
+
+def _delete_if_present(file: Optional[str]):
+    if file:
+        file_obj = Path(file)
+        if file_obj.exists():
+            file_obj.unlink()
 
 
 def _get_lang_by_ip(ip: Ipv4AWrapper) -> Optional[str]:

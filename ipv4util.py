@@ -8,13 +8,18 @@ class Ipv4AWrapper:
     A wrapper to IPv4Address, it facilitates the comparison of ip addresses and ASN assigned entities
     in order to find the corresponding AS numbers
     """
-
-    def __init__(self, range_begin=None, range_end=None, as_number=None, country=None, single_ip=None):
+    def __init__(self,
+                 range_begin=None,
+                 range_end=None,
+                 as_number=None,
+                 country=None,
+                 single_ip=None):
         if not single_ip:
             self._begin = IPv4Address(range_begin)
             self._end = IPv4Address(range_end)
             if not self._begin <= self._end:
-                raise ValueError('range_begin must be less or equal than range_end.')
+                raise ValueError(
+                    'range_begin must be less or equal than range_end.')
             self._asn = as_number
             self._country = country
             self._ip = None
@@ -81,7 +86,8 @@ class Ipv4AWrapper:
         return self._ip
 
 
-def binary_search_ip(sorted_list: List[Ipv4AWrapper], elem: Ipv4AWrapper) -> Optional[Ipv4AWrapper]:
+def binary_search_ip(sorted_list: List[Ipv4AWrapper],
+                     elem: Ipv4AWrapper) -> Optional[Ipv4AWrapper]:
     """
     Finds the equivalent Ipv4Wrapper element in a sorted list of Ipv4Wrapper objects.
 

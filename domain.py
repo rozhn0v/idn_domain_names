@@ -3,9 +3,9 @@ from __future__ import annotations
 import socket
 from collections import Counter
 from itertools import product
-from typing import Iterator
 from typing import List
 from typing import Optional
+from typing import Set
 
 import langdetect
 from confusables import normalize
@@ -98,7 +98,7 @@ class Domain:
         fqdn = self._fqdn.encode('acsii').decode('idna')
         return Domain(fqdn)
 
-    def normalize_wrap(self, xn_idx: List[int]) -> Iterator[str]:
+    def normalize_wrap(self, xn_idx: List[int]) -> Set[Domain]:
         """
         Generator to a series of possible confusion domain names for the given dn_unicode.
 
@@ -117,9 +117,7 @@ class Domain:
             dn_split[i] = normalize(dn_split[i])
         dn_split = map(lambda x: x if isinstance(x, list) else [x], dn_split)
         dn_iter = map(lambda x: '.'.join(x), product(*dn_split))
-        for dn in dn_iter:
-            if dn != self._fqdn:
-                yield dn
+        return set([Domain(dn) for dn in dn_iter if dn != self._fqdn])
 
     # TODO do not pass xn_idx
     def correct_accent_equal(self, homo_domain: Domain,
@@ -173,10 +171,13 @@ class Domain:
                     continue
                 else:
                     not_equivalent = 1
-        if not_equivalent:
-            return False
-        else:
-            return True
+        return not not_equivalent
+
+    def __hash__(self) -> int:
+        return hash(self._fqdn)
+
+    def __eq__(self, o: object) -> bool:
+        return (type(o) is Domain) and (self._fqdn == o._fqdn)
 
     def __str__(self) -> str:
         return self._fqdn
