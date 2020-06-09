@@ -1,14 +1,17 @@
 from __future__ import annotations
 
-import socket
 import typing
 from collections import Counter
 from itertools import product
-from typing import List, Optional, Set
+from typing import List
+from typing import Optional
+from typing import Set
 
 import langdetect
+import validators
 from confusables import normalize
-from textblob import TextBlob, exceptions
+from textblob import TextBlob
+from textblob import exceptions
 
 
 class Domain:
@@ -17,8 +20,7 @@ class Domain:
             raise ValueError('%s must end with dot' % fqdn)
         self._fqdn = fqdn
 
-    # TODO do not pass xn_idx
-    def domain_language(self, xn_idx: List[int]) -> Optional[str]:
+    def domain_language(self) -> Optional[str]:
         """
         Returns the most probable language of the given dn_unicode domain name.
 
@@ -34,7 +36,7 @@ class Domain:
         """
         dn_list = self._fqdn.split('.')
         lang_counter = Counter()  # type: typing.Counter[str]
-        for idx in xn_idx:
+        for idx in self.non_ascii_label_ids():
             try:
                 lang_opt = TextBlob(dn_list[idx]).detect_language()
                 lang = None
@@ -58,8 +60,8 @@ class Domain:
             return lang_counter.most_common()[0][0]
         return None
 
-    # TODO make private
-    def punycode_idx(self) -> List[int]:
+    # TODO consider caching returned value
+    def non_ascii_label_ids(self) -> List[int]:
         """
         Generates a list containing the indexes of the valid punycode
         in the domain name, considering the '.' (dot) as a field separator.
@@ -71,24 +73,37 @@ class Domain:
             in a dot-separated fashion, where valid punycode can be found.
         """
 
+        def has_xn(string):
+            return 'xn--' in string
+
+        def has_non_ascii(string):
+            return not Domain._is_ascii(string)
+
+        if Domain._is_ascii(self._fqdn):
+            predicate = has_xn
+        else:
+            predicate = has_non_ascii
+
         dn_split = self._fqdn.split('.')
         xn_list = []
         for i, part in enumerate(dn_split):
-            if 'xn--' in part:
+            if predicate(part):
                 xn_list.append(i)
         return xn_list
+
+    @staticmethod
+    def _is_ascii(string: str) -> bool:
+        try:
+            string.encode('ascii')
+            return True
+        except UnicodeEncodeError:
+            return False
 
     def is_idna(self) -> bool:
         return 'xn--' in self._fqdn
 
     def get_label(self, i: int) -> str:
         return self._fqdn.split('.')[i]
-
-    def get_ip(self) -> Optional[str]:
-        try:
-            return socket.gethostbyname(self._fqdn)
-        except (socket.gaierror, UnicodeError):
-            return None
 
     def maybe_truncate_www(self) -> Domain:
         return Domain(self._fqdn.lstrip('www.'))
@@ -97,33 +112,26 @@ class Domain:
         fqdn = self._fqdn.encode('ascii').decode('idna')
         return Domain(fqdn)
 
-    def normalize_wrap(self, xn_idx: List[int]) -> Set[Domain]:
+    def generate_possible_confusions(self) -> Set[Domain]:
         """
         Generator to a series of possible confusion domain names for the given
         dn_unicode.
-
-        Parameters
-        ----------
-        xn_idx : list of int
-            Indexes of the valid punycode, considering the dot as a field
-            separator.
 
         Returns
         -------
         An generator of the possible confusions for the given dn_unicode,
         domain name.
         """
-
+        xn_idx = self.non_ascii_label_ids()
         dn_split = self._fqdn.split('.')
         for i in xn_idx:
             dn_split[i] = normalize(dn_split[i])
         dn_lists = map(lambda x: x if isinstance(x, list) else [x], dn_split)
         dn_iter = map('.'.join, product(*dn_lists))
-        return {Domain(dn) for dn in dn_iter if dn != self._fqdn}
+        return {Domain(dn) for dn in dn_iter if
+                dn != self._fqdn and validators.domain(dn[:-1])}
 
-    # TODO do not pass xn_idx
-    def correct_accent_equal(self, homo_domain: Domain,
-                             xn_idx: List[int]) -> bool:
+    def correct_accent_equal(self, homo_domain: Domain) -> bool:
         """
             Check for domains with equivalent meaning taking into consideration
             the lack of correct accentuation in one of the cases.
@@ -132,9 +140,6 @@ class Domain:
             ----------
             homo_domain : Domain
                 Homoglyph domain of domain_unicode.
-            xn_idx : list of int
-                Indexes of the valid punycode, considering the dot as a field
-                separator.
 
             Returns
             -------
@@ -144,7 +149,7 @@ class Domain:
                 Otherwise, False.
         """
         not_equivalent = 0
-        for idx in xn_idx:
+        for idx in self.non_ascii_label_ids():
             domain_blob = TextBlob(self.get_label(idx))
             homo_blob = TextBlob(homo_domain.get_label(idx))
             if domain_blob == homo_blob:

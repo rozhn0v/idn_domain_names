@@ -2,10 +2,17 @@ from __future__ import annotations
 
 import csv
 import ipaddress
+import logging
+import socket
+from functools import lru_cache
 from ipaddress import IPv4Address
-from typing import List, Optional, Tuple
+from typing import List
+from typing import Optional
+from typing import Tuple
 
 from domain import Domain
+
+log = logging.getLogger('app')  # pylint: disable=invalid-name
 
 
 class Ipv4AWrapper:
@@ -141,7 +148,7 @@ class IpTable:  # pylint: disable=too-few-public-methods
         asn : str or None
              AS number of the given hostname.
         """
-        address = hostname.get_ip()
+        address = self.get_ip(hostname)
         if not address:
             return None, None
 
@@ -149,7 +156,17 @@ class IpTable:  # pylint: disable=too-few-public-methods
         match_obj = self._search(ip_obj)
         if match_obj:
             return ip_obj, match_obj.asn
+        log.debug('failed to resolve asn for %s, ip %s' % (hostname, ip_obj))
         return ip_obj, None
+
+    @lru_cache(maxsize=128)
+    def get_ip(self, domain: Domain) \
+            -> Optional[str]:  # pylint: disable=no-self-use
+        try:
+            return socket.gethostbyname(str(domain))
+        except (socket.gaierror, UnicodeError):
+            log.exception('failed to resolve %s' % domain)
+            return None
 
     def _search(self, elem: Ipv4AWrapper) -> Optional[Ipv4AWrapper]:
         """
