@@ -6,9 +6,7 @@ import logging
 import socket
 from functools import lru_cache
 from ipaddress import IPv4Address
-from typing import List
-from typing import Optional
-from typing import Tuple
+from typing import List, Optional, Tuple
 
 from domain import Domain
 
@@ -151,21 +149,34 @@ class IpTable:  # pylint: disable=too-few-public-methods
         address = self.get_ip(hostname)
         if not address:
             return None, None
-
         ip_obj = Ipv4AWrapper(single_ip=ipaddress.IPv4Address(address))
         match_obj = self._search(ip_obj)
         if match_obj:
             return ip_obj, match_obj.asn
-        log.debug('failed to resolve asn for %s, ip %s' % (hostname, ip_obj))
+        log.debug('failed to resolve asn for %s, ip %s', hostname, ip_obj)
         return ip_obj, None
 
     @lru_cache(maxsize=128)
     def get_ip(self, domain: Domain) \
-            -> Optional[str]:  # pylint: disable=no-self-use
+            -> Optional[Ipv4AWrapper]:  # pylint: disable=no-self-use
+        """
+        Get the ip address of domain, wrapped in a Ipv4Wrapper object.
+
+        Parameters
+        ----------
+        domain : Domain
+            A Domain object which wraps an url.
+
+        Returns
+        -------
+        None or Ipv4Wrapper
+            The ip address of domain, wrapped in a Ipv4Wrapper object.
+        """
         try:
-            return socket.gethostbyname(str(domain))
+            ip_address = socket.gethostbyname(str(domain))
+            return Ipv4AWrapper(single_ip=ip_address)
         except (socket.gaierror, UnicodeError):
-            log.exception('failed to resolve %s' % domain)
+            log.exception('failed to resolve %s', domain)
             return None
 
     def _search(self, elem: Ipv4AWrapper) -> Optional[Ipv4AWrapper]:

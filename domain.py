@@ -3,15 +3,12 @@ from __future__ import annotations
 import typing
 from collections import Counter
 from itertools import product
-from typing import List
-from typing import Optional
-from typing import Set
+from typing import List, Optional, Set
 
 import langdetect
 import validators
 from confusables import normalize
-from textblob import TextBlob
-from textblob import exceptions
+from textblob import TextBlob, exceptions
 
 
 class Domain:
@@ -60,7 +57,6 @@ class Domain:
             return lang_counter.most_common()[0][0]
         return None
 
-    # TODO consider caching returned value
     def non_ascii_label_ids(self) -> List[int]:
         """
         Generates a list containing the indexes of the valid punycode

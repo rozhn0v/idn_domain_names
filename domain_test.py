@@ -30,3 +30,13 @@ class DomainTest(unittest.TestCase):
         expected = [0]
         self.assertEqual(expected, punycode.non_ascii_label_ids())
         self.assertEqual(expected, unicode.non_ascii_label_ids())
+
+    def test_domain_language(self):
+        youtube = Domain('youtube.com.')
+        frasescelebres = Domain('xn--frasesclebres-hhb.com.')
+        actual = youtube.domain_language()
+        expected = None
+        self.assertEqual(expected, actual)
+        actual = frasescelebres.domain_language()
+        expected = 'ca'  # ca, es and pt are very similar langs
+        self.assertEqual(expected, actual)
