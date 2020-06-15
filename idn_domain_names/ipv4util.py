@@ -8,7 +8,7 @@ from functools import lru_cache
 from ipaddress import IPv4Address
 from typing import List, Optional, Tuple
 
-from domain import Domain
+from idn_domain_names.domain import Domain
 
 log = logging.getLogger('app')  # pylint: disable=invalid-name
 

@@ -1,6 +1,6 @@
 import unittest
 
-from domain import Domain
+from idn_domain_names.domain import Domain
 
 
 class DomainTest(unittest.TestCase):

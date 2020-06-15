@@ -5,3 +5,5 @@ Python_3.8/*
 __pycache__/*
 phishing.log
 env
+MANIFEST
+.tox

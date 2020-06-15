@@ -1,7 +1,7 @@
 import unittest
 
-from domain import Domain
-from ipv4util import IpTable
+from idn_domain_names.domain import Domain
+from idn_domain_names.ipv4util import IpTable
 
 
 class Ipv4UtilsTest(unittest.TestCase):

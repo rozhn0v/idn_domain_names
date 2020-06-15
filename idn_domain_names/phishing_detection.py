@@ -14,9 +14,9 @@ import time
 import grequests
 from bs4 import BeautifulSoup
 
-import ipv4util
-from domain import Domain
-from ipv4util import Ipv4AWrapper
+import idn_domain_names.ipv4util as ipv4util
+from idn_domain_names.domain import Domain
+from idn_domain_names.ipv4util import Ipv4AWrapper
 
 log = logging.getLogger('app')  # pylint: disable=invalid-name
 
@@ -386,7 +386,7 @@ def main() -> None:
     detect_phishing(domains_to_check, ip_table, phishing_targets,
                     args.output_file)
 
-    print(f'Total time: {time.time()-begin}')
+    print(f'Total time: {time.time() - begin}')
 
 
 if __name__ == '__main__':
