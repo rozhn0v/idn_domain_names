@@ -3,10 +3,14 @@ import csv
 import gzip
 import logging
 import sys
-import time
 from pathlib import Path
-from typing import Iterator, List, Optional, Set, Tuple
+from typing import Iterator
+from typing import Optional
+from typing import Set
+from typing import Tuple
+from typing import List
 
+import time
 import grequests
 from bs4 import BeautifulSoup
 
@@ -241,22 +245,13 @@ def _language_check(domain_unicode: Domain, homo_domain: Domain,
     1 or -1 : int
         1 if the languages of the domains and its html match, -1 if not.
     """
-    domain_ip = ip_table.get_ip(domain_unicode)
-    assert domain_ip is not None
-    homo_ip = ip_table.get_ip(homo_domain)
-    assert homo_ip is not None
-
-    (domain_html_lang, homo_html_lang) = _detect_html_languages(
-        domain_ip, homo_ip)
     false_true_counter = 0
     domain_lang = domain_unicode.domain_language() or 'en'
     homo_lang = homo_domain.domain_language()
+    (domain_html_lang, homo_html_lang) = _detect_html_languages(
+        ip_table.get_ip(domain_unicode), ip_table.get_ip(homo_domain))
     if domain_html_lang == homo_html_lang and domain_lang != homo_lang:
-        correct_dn_equal = domain_unicode.correct_accent_equal(homo_domain)
-        if correct_dn_equal:
-            false_true_counter += 1
-        else:
-            false_true_counter -= 1
+        false_true_counter += domain_unicode.is_cognate_domains(homo_domain)
     elif domain_html_lang == homo_html_lang and domain_lang == homo_lang:
         false_true_counter += 1
     elif domain_html_lang != homo_html_lang and domain_lang == homo_lang:
@@ -304,17 +299,18 @@ def _delete_if_present(path: str):
         file_obj.unlink()
 
 
-def _detect_html_languages(domain_ip: Ipv4AWrapper,
-                           homoglyph_ip: Ipv4AWrapper) -> Tuple[str, str]:
+def _detect_html_languages(domain_ip: Optional[Ipv4AWrapper],
+                           homoglyph_ip: Optional[Ipv4AWrapper]) \
+        -> Tuple[str, str]:
     """
     Requests the html of the given ip addresses, wrapped in a Ipv4Wrapper
     object, and returns the "lang" attribute of them.
 
     Parameters
     ----------
-    domain_ip : Ipv4Wrapper
+    domain_ip : Ipv4Wrapper or None
         The Ipv4Wrapper object for the domain ip.
-    homoglyph_ip : Ipv4Wrapper
+    homoglyph_ip : Ipv4Wrapper or None
         The Ipv4Wrapper object for the homoglyph domain ip.
 
     Returns
@@ -338,7 +334,8 @@ def _detect_html_languages(domain_ip: Ipv4AWrapper,
     return domain_html_lang, homo_html_lang
 
 
-def _get_lang_by_ip(ip_addresses: List[Ipv4AWrapper]) -> List[Optional[str]]:
+def _get_lang_by_ip(ip_addresses: List[Optional[Ipv4AWrapper]]) \
+        -> List[Optional[str]]:
     """
     Get the htmls' lang attribute for the list of Ipv4Wrapper objects
     provided.
@@ -354,10 +351,12 @@ def _get_lang_by_ip(ip_addresses: List[Ipv4AWrapper]) -> List[Optional[str]]:
         A list of strings containing the "lang" attribute of the provided
         urls. None if the html request fails.
     """
+    if None in ip_addresses:
+        return [None] * len(ip_addresses)
     request = [grequests.get('http://' + str(ip_address))
                for ip_address in ip_addresses]
     responses = grequests.map(request)
-    lang_list = list()
+    lang_list: List[Optional[str]] = list()
     for ip_address, response in zip(ip_addresses, responses):
         if response is None:
             log.debug('%s does not respond, return None', ip_address)
@@ -366,6 +365,7 @@ def _get_lang_by_ip(ip_addresses: List[Ipv4AWrapper]) -> List[Optional[str]]:
         html = soup.html
         if html is None:
             log.debug('%s has no html, return none', ip_address)
+            lang_list.append(None)
             return [None] * len(ip_addresses)
         lang = html.get('lang')
         log.debug('lang of ip %s is %s', ip_address, lang)
@@ -375,7 +375,6 @@ def _get_lang_by_ip(ip_addresses: List[Ipv4AWrapper]) -> List[Optional[str]]:
 
 def main() -> None:
     begin = time.time()
-
     init_logger()
     args = parse_args()
 
@@ -387,7 +386,7 @@ def main() -> None:
     detect_phishing(domains_to_check, ip_table, phishing_targets,
                     args.output_file)
 
-    print(f'Total time: {time.time() - begin}')
+    print(f'Total time: {time.time()-begin}')
 
 
 if __name__ == '__main__':

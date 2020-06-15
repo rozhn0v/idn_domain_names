@@ -9,6 +9,7 @@ import langdetect
 import validators
 from confusables import normalize
 from textblob import TextBlob, exceptions
+from compatiblewords import CompatibleWords
 
 
 class Domain:
@@ -127,10 +128,12 @@ class Domain:
         return {Domain(dn) for dn in dn_iter if
                 dn != self._fqdn and validators.domain(dn[:-1])}
 
-    def correct_accent_equal(self, homo_domain: Domain) -> bool:
+    # pylint: disable=no-else-return
+    def is_cognate_domains(self, homo_domain: Domain) -> int:
         """
             Check for domains with equivalent meaning taking into consideration
-            the lack of correct accentuation in one of the cases.
+            the lack of correct accentuation in one of the cases and cognates
+            between languages.
 
             Parameters
             ----------
@@ -139,42 +142,19 @@ class Domain:
 
             Returns
             -------
-            bool
-                True, if the domains are probably from the same language
-                but one is lacking of accentuation.
-                Otherwise, False.
+            int
+                1, if the domains are probably from the same language
+                but one is lacking of accentuation or is a valid cognate.
+                Otherwise, -1.
         """
-        not_equivalent = 0
         for idx in self.non_ascii_label_ids():
             domain_blob = TextBlob(self.get_label(idx))
             homo_blob = TextBlob(homo_domain.get_label(idx))
-            if domain_blob == homo_blob:
-                continue
-            try:
-                translation = domain_blob.translate(
-                    from_lang=domain_blob.detect_language(),
-                    to=homo_blob.detect_language())
-            except exceptions.NotTranslated:
-                try:
-                    translation = homo_blob.translate(
-                        from_lang=homo_blob.detect_language(),
-                        to=domain_blob.detect_language())
-                except exceptions.NotTranslated:
-                    not_equivalent = 1
-                    break
-                else:
-                    if translation == domain_blob:
-                        continue
-                    not_equivalent = 1
-                    break
-            except exceptions.TranslatorError:
-                not_equivalent = 1
-                break
-            else:
-                if translation == homo_blob:
-                    continue
-                not_equivalent = 1
-        return not not_equivalent
+            is_compatible = CompatibleWords(domain_blob, homo_blob)\
+                .check_compatibility()
+            if not is_compatible:
+                return -1
+        return 1
 
     def __hash__(self) -> int:
         return hash(self._fqdn)

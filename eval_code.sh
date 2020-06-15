@@ -34,7 +34,7 @@ mypy_eval() {
   done
 }
 
-mypy_eval() {
+unit_eval() {
   py=$1
   for py_file in *_test.py
   do
@@ -48,7 +48,8 @@ mypy_eval() {
 eval_all() {
   flake_eval
   pylint_eval
-  mypy_eval 'python3.8'
+  mypy_eval
+  unit_eval 'python3.8'
 }
 
 eval_all
