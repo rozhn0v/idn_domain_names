@@ -32,23 +32,7 @@ class Domain:
             english language.
 
         """
-        dn_list = self._fqdn.split('.')
-        lang_counter = Counter()  # type: typing.Counter[str]
-        for idx in self.non_ascii_label_ids():
-            try:
-                lang_opt = TextBlob(dn_list[idx]).detect_language()
-                lang = None
-                if lang_opt != 'en':
-                    lang = lang_opt
-                else:
-                    lang_opt = langdetect.detect(dn_list[idx])
-                    if lang_opt != 'en':
-                        lang = lang_opt
-                if lang is None:
-                    lang = 'en'
-                lang_counter[lang] += 1
-            except exceptions.TranslatorError:
-                continue
+        lang_counter = self._count_label_languages()
         if len(lang_counter) > 1:
             most_common_lang = lang_counter.most_common(2)
             if most_common_lang[0][0] == 'en':
@@ -57,6 +41,31 @@ class Domain:
         if len(lang_counter) == 1:
             return lang_counter.most_common()[0][0]
         return None
+
+    def _count_label_languages(self) -> typing.Counter[str]:
+        labels = self._fqdn.split('.')
+        lang_counter = Counter()  # type: typing.Counter[str]
+        for idx in self.non_ascii_label_ids():
+            try:
+                lang = Domain._detect_language(labels[idx])
+                lang_counter[lang] += 1
+            except exceptions.TranslatorError:
+                continue
+        return lang_counter
+
+    @staticmethod
+    def _detect_language(label) -> str:
+        lang_opt = TextBlob(label).detect_language()
+        lang = None
+        if lang_opt != 'en':
+            lang = lang_opt
+        else:
+            lang_opt = langdetect.detect(label)
+            if lang_opt != 'en':
+                lang = lang_opt
+        if lang is None:
+            lang = 'en'
+        return lang
 
     def non_ascii_label_ids(self) -> List[int]:
         """
@@ -150,7 +159,7 @@ class Domain:
         for idx in self.non_ascii_label_ids():
             domain_blob = TextBlob(self.get_label(idx))
             homo_blob = TextBlob(homo_domain.get_label(idx))
-            is_compatible = CompatibleWords(domain_blob, homo_blob)\
+            is_compatible = CompatibleWords(domain_blob, homo_blob) \
                 .check_compatibility()
             if not is_compatible:
                 return -1
