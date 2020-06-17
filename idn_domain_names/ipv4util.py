@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import csv
-import ipaddress
 import logging
 import socket
 from functools import lru_cache
@@ -149,12 +148,11 @@ class IpTable:  # pylint: disable=too-few-public-methods
         address = self.get_ip(hostname)
         if not address:
             return None, None
-        ip_obj = Ipv4AWrapper(single_ip=ipaddress.IPv4Address(address))
-        match_obj = self._search(ip_obj)
+        match_obj = self._search(address)
         if match_obj:
-            return ip_obj, match_obj.asn
-        log.debug('failed to resolve asn for %s, ip %s', hostname, ip_obj)
-        return ip_obj, None
+            return address, match_obj.asn
+        log.debug('failed to resolve asn for %s, ip %s', hostname, address)
+        return address, None
 
     @lru_cache(maxsize=128)
     def get_ip(self, domain: Domain) \

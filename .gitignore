@@ -2,8 +2,10 @@ backup/*
 data/*
 Python_3.8/*
 .idea/*
+perfomance/*
 **/__pycache__/*
 phishing.log
 env
 MANIFEST
 .tox
+.mypy_cache

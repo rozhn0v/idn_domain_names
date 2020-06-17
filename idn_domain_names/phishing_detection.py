@@ -29,7 +29,7 @@ def init_logger() -> None:
     formatter = logging.Formatter(
         fmt="[%(asctime)s] %(process)d %(levelname)s %(message)s",
         datefmt='%H:%M:%S')
-    file_handler = logging.FileHandler('phishing.log')
+    file_handler = logging.FileHandler('../phishing.log')
     file_handler.setFormatter(formatter)
     log.addHandler(file_handler)
 
@@ -365,7 +365,6 @@ def _get_lang_by_ip(ip_addresses: List[Optional[Ipv4AWrapper]]) \
         html = soup.html
         if html is None:
             log.debug('%s has no html, return none', ip_address)
-            lang_list.append(None)
             return [None] * len(ip_addresses)
         lang = html.get('lang')
         log.debug('lang of ip %s is %s', ip_address, lang)
@@ -374,7 +373,6 @@ def _get_lang_by_ip(ip_addresses: List[Optional[Ipv4AWrapper]]) \
 
 
 def main() -> None:
-    begin = time.time()
     init_logger()
     args = parse_args()
 
@@ -385,8 +383,6 @@ def main() -> None:
 
     detect_phishing(domains_to_check, ip_table, phishing_targets,
                     args.output_file)
-
-    print(f'Total time: {time.time() - begin}')
 
 
 if __name__ == '__main__':

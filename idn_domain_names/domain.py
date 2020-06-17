@@ -9,6 +9,7 @@ import langdetect
 import validators
 from confusables import normalize
 from textblob import TextBlob, exceptions
+
 from idn_domain_names.compatiblewords import CompatibleWords
 
 
