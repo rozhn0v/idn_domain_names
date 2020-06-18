@@ -1,9 +1,9 @@
-backup/*
-data/*
-Python_3.8/*
-.idea/*
-perfomance/*
-**/__pycache__/*
+backup/
+data/
+Python_3.8/
+.idea/
+**/__pycache__/
+perfomance/
 phishing.log
 env
 MANIFEST

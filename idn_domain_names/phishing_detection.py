@@ -10,7 +10,6 @@ from typing import Set
 from typing import Tuple
 from typing import List
 
-import time
 import grequests
 from bs4 import BeautifulSoup
 
@@ -161,6 +160,41 @@ def dump_result(domain: Domain, file_path: str,
                 'Invalid file_path extension, use TSV or CSV file_path.')
 
 
+def _is_homoglyph_domain_valid(domain_unicode: Domain, homo_domain: Domain,
+                               ip_table: ipv4util.IpTable,
+                               domain_asn: str) -> int:
+    """
+    Check if homoglyph domain is a valid evidence that the domain_unicode is
+    a phishing domain.
+
+    Parameters
+    ----------
+    domain_unicode : Domain
+        The suspect phishing idn.
+    homo_domain : Domain
+        A homoglyph of domain_unicode.
+    ip_table : ipv4util.IpTable
+        table of IPs and ASNs.
+    domain_asn : str
+        The ASN of domain_unicode.
+
+    Returns
+    -------
+    int
+        1, if the homoglyph domain belongs to the same entity as
+        domain_unicode. 0, if the homoglyph domain is dead. -1 if the
+        homoglyph domain is a valid evidence that domain_unicode is phishing.
+    """
+    homoglyph_ip, homoglyph_asn = ip_table.get_ip_and_asn(homo_domain)
+    if homoglyph_ip is None or homoglyph_asn is None:
+        log.debug('domain %s is unresolvable, skip', homo_domain)
+        return 0
+    if domain_asn == homoglyph_asn:
+        return 1
+    lang_check = _language_check(domain_unicode, homo_domain, ip_table)
+    return lang_check
+
+
 def detect_phishing(domains_to_check: Iterator[Domain],
                     ip_table: ipv4util.IpTable,
                     phishing_targets: Set[Domain],
@@ -173,9 +207,9 @@ def detect_phishing(domains_to_check: Iterator[Domain],
 
     Parameters
     ----------
-    domains_to_check: iterable of possible phishing domains
-    ip_table: ipv4util.IpTable
-        table of IPs and ASNs
+    domains_to_check : iterable of possible phishing domains.
+    ip_table : ipv4util.IpTable
+        table of IPs and ASNs.
     phishing_targets : Set[Domains]
         set of phishing targets
     path_to_output : str
@@ -212,15 +246,9 @@ def detect_phishing(domains_to_check: Iterator[Domain],
         homoglyph_domains = domain_unicode.generate_possible_confusions()
         homoglyph_domains = phishing_targets.intersection(homoglyph_domains)
         for homo_domain in homoglyph_domains:
-            homoglyph_ip, homoglyph_asn = ip_table.get_ip_and_asn(homo_domain)
-            if homoglyph_ip is None or homoglyph_asn is None:
-                log.debug('domain %s is unresolvable, skip', homo_domain)
-                continue
-            if domain_asn == homoglyph_asn:
-                false_true_counter += 1
-            else:
-                false_true_counter += _language_check(domain_unicode,
-                                                      homo_domain, ip_table)
+            false_true_counter += (
+                _is_homoglyph_domain_valid(domain_unicode, homo_domain,
+                                           ip_table, domain_asn))
         is_phishing = false_true_counter < 0
         dump_result(domain, path_to_output, is_phishing)
 
