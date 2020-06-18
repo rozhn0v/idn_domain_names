@@ -4,92 +4,34 @@ import csv
 import logging
 import socket
 from functools import lru_cache
+from typing import List
+from typing import Optional
+from typing import Tuple
+
 from ipaddress import IPv4Address
-from typing import List, Optional, Tuple
 
 from idn_domain_names.domain import Domain
 
 log = logging.getLogger('app')  # pylint: disable=invalid-name
 
 
-class Ipv4AWrapper:
-    """
-    A wrapper to IPv4Address, it facilitates the comparison of ip addresses and
-    ASN assigned entities in order to find the corresponding AS numbers
-    """
+class ClosedRange:
+    def __init__(self, start: IPv4Address, end: IPv4Address, asn: str):
+        self.start = start
+        self.end = end
+        self.asn = asn
 
-    def __init__(self,
-                 range_begin=None,
-                 range_end=None,
-                 as_number=None,
-                 country=None,
-                 single_ip=None):
-        if not single_ip:
-            self._begin = IPv4Address(range_begin)
-            self._end = IPv4Address(range_end)
-            if self._begin > self._end:
-                raise ValueError(
-                    'range_begin must be less or equal than range_end.')
-            self._asn = as_number
-            self._country = country
-            self._ip = None
-        else:
-            self._begin = None
-            self._end = None
-            self._asn = None
-            self._ip = IPv4Address(single_ip)
+    def contains(self, address: IPv4Address):
+        return self.start <= address <= self.end
 
-    def __eq__(self, rhs):
-        if not self._ip and not rhs._ip:
-            return self._begin == rhs._begin and self._end == rhs._end
-        if not self._ip and rhs._ip:
-            return self._begin <= rhs._ip <= self._end
-        if self._ip and not rhs._ip:
-            return rhs._begin <= self._ip <= rhs._end
-        return self._ip == rhs._ip
+    def is_after(self, address: IPv4Address):
+        return address < self.start
 
-    def __lt__(self, rhs):
-        if not self._ip and not rhs._ip:
-            return self._end < rhs._begin
-        if not self._ip and rhs._ip:
-            return self._begin < rhs._ip
-        if self._ip and not rhs._ip:
-            return self._ip < rhs._begin
-        return self._ip < rhs._ip
+    def __lt__(self, other):
+        return self.end < other.start
 
-    def __le__(self, rhs):
-        if not self._ip and not rhs._ip:
-            return self._end <= rhs._begin
-        if not self._ip and rhs._ip:
-            return self._begin <= rhs._ip
-        if self._ip and not rhs._ip:
-            return self._ip <= rhs._begin
-        return self._ip <= rhs._ip
-
-    def __str__(self):
-        if not self._ip:
-            return str(self._begin) + ' - ' + str(self._end)
-        return str(self._ip)
-
-    @property
-    def asn(self):
-        return self._asn
-
-    @property
-    def range_begin(self):
-        return self._begin
-
-    @property
-    def range_end(self):
-        return self._end
-
-    @property
-    def country(self):
-        return self._country
-
-    @property
-    def ip(self):  # pylint: disable=invalid-name
-        return self._ip
+    def __str__(self) -> str:
+        return '{[%s; %s] %s}' % (self.start, self.end, self.asn)
 
 
 def load_ipv4_table(file_path: str) -> IpTable:
@@ -111,23 +53,25 @@ def load_ipv4_table(file_path: str) -> IpTable:
         The table mapped to a python list.
     """
     ipv4_table = []
-    print('start load ipv4 table from {}'.format(file_path))
+    log.debug('start load ipv4 table from %s', file_path)
     with open(file_path, 'r') as csvfile:
         csv_obj = csv.reader(csvfile, delimiter='\t')
         for row in csv_obj:
-            ip_wrapper_obj = Ipv4AWrapper(*row[:4])
-            ipv4_table.append(ip_wrapper_obj)
-    ipv4_table.sort()
-    print('loaded phishing table with size {}'.format(len(ipv4_table)))
+            start = IPv4Address(row[0])
+            end = IPv4Address(row[1])
+            asn = row[2]
+            ipv4_table.append(ClosedRange(start, end, asn))
+    log.debug('loaded phishing table with size %s', len(ipv4_table))
     return IpTable(ipv4_table)
 
 
 class IpTable:  # pylint: disable=too-few-public-methods
-    def __init__(self, delegate: List[Ipv4AWrapper]):
+    def __init__(self, delegate: List[ClosedRange]):
         self._delegate = delegate
+        self._delegate.sort()
 
     def get_ip_and_asn(self, hostname: Domain) -> \
-            Tuple[Optional[Ipv4AWrapper], Optional[str]]:
+            Tuple[Optional[IPv4Address], Optional[str]]:
         """
         Get the IP address and AS number of the given hostname.
         ASN number returns None if not found.
@@ -145,18 +89,18 @@ class IpTable:  # pylint: disable=too-few-public-methods
         asn : str or None
              AS number of the given hostname.
         """
-        address = self.get_ip(hostname)
+        address = self.resolve_ip(hostname)
         if not address:
             return None, None
-        match_obj = self._search(address)
-        if match_obj:
-            return address, match_obj.asn
+        asn = self.lookup_asn(address)
+        if asn:
+            return address, asn
         log.debug('failed to resolve asn for %s, ip %s', hostname, address)
         return address, None
 
     @lru_cache(maxsize=128)
-    def get_ip(self, domain: Domain) \
-            -> Optional[Ipv4AWrapper]:  # pylint: disable=no-self-use
+    def resolve_ip(self, domain: Domain) \
+            -> Optional[IPv4Address]:  # pylint: disable=no-self-use
         """
         Get the ip address of domain, wrapped in a Ipv4Wrapper object.
 
@@ -172,12 +116,12 @@ class IpTable:  # pylint: disable=too-few-public-methods
         """
         try:
             ip_address = socket.gethostbyname(str(domain))
-            return Ipv4AWrapper(single_ip=ip_address)
+            return IPv4Address(ip_address)
         except (socket.gaierror, UnicodeError):
             log.exception('failed to resolve %s', domain)
             return None
 
-    def _search(self, elem: Ipv4AWrapper) -> Optional[Ipv4AWrapper]:
+    def lookup_asn(self, elem: IPv4Address) -> Optional[str]:
         """
         Finds the equivalent Ipv4Wrapper element in a sorted list
         of Ipv4Wrapper objects.
@@ -197,9 +141,9 @@ class IpTable:  # pylint: disable=too-few-public-methods
         high = arr_len - 1
         mid = int((high + low) / 2)
         while low <= high:
-            if self._delegate[mid] == elem:
-                return self._delegate[mid]
-            if self._delegate[mid] > elem:
+            if self._delegate[mid].contains(elem):
+                return self._delegate[mid].asn
+            if self._delegate[mid].is_after(elem):
                 high = mid - 1
             else:
                 low = mid + 1

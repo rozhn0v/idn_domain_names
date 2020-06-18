@@ -3,19 +3,15 @@ import csv
 import gzip
 import logging
 import sys
+from ipaddress import IPv4Address
 from pathlib import Path
-from typing import Iterator
-from typing import Optional
-from typing import Set
-from typing import Tuple
-from typing import List
+from typing import Iterator, List, Optional, Set, Tuple
 
 import grequests
 from bs4 import BeautifulSoup
 
 import idn_domain_names.ipv4util as ipv4util
 from idn_domain_names.domain import Domain
-from idn_domain_names.ipv4util import Ipv4AWrapper
 
 log = logging.getLogger('app')  # pylint: disable=invalid-name
 
@@ -277,7 +273,7 @@ def _language_check(domain_unicode: Domain, homo_domain: Domain,
     domain_lang = domain_unicode.domain_language() or 'en'
     homo_lang = homo_domain.domain_language()
     (domain_html_lang, homo_html_lang) = _detect_html_languages(
-        ip_table.get_ip(domain_unicode), ip_table.get_ip(homo_domain))
+        ip_table.resolve_ip(domain_unicode), ip_table.resolve_ip(homo_domain))
     if domain_html_lang == homo_html_lang and domain_lang != homo_lang:
         false_true_counter += domain_unicode.is_cognate_domains(homo_domain)
     elif domain_html_lang == homo_html_lang and domain_lang == homo_lang:
@@ -327,8 +323,8 @@ def _delete_if_present(path: str):
         file_obj.unlink()
 
 
-def _detect_html_languages(domain_ip: Optional[Ipv4AWrapper],
-                           homoglyph_ip: Optional[Ipv4AWrapper]) \
+def _detect_html_languages(domain_ip: Optional[IPv4Address],
+                           homoglyph_ip: Optional[IPv4Address]) \
         -> Tuple[str, str]:
     """
     Requests the html of the given ip addresses, wrapped in a Ipv4Wrapper
@@ -362,7 +358,7 @@ def _detect_html_languages(domain_ip: Optional[Ipv4AWrapper],
     return domain_html_lang, homo_html_lang
 
 
-def _get_lang_by_ip(ip_addresses: List[Optional[Ipv4AWrapper]]) \
+def _get_lang_by_ip(ip_addresses: List[Optional[IPv4Address]]) \
         -> List[Optional[str]]:
     """
     Get the htmls' lang attribute for the list of Ipv4Wrapper objects
