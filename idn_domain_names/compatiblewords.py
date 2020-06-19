@@ -45,7 +45,7 @@ class Words:
         return isinstance(o, Words) and self.delegate == o.delegate
 
 
-class CompatibleWords:
+class CompatibleWords:  # pylint: disable=too-few-public-methods
     def __init__(self, word: TextBlob, homoglyph: TextBlob):
         self._word = word
         self._homo = homoglyph
@@ -153,20 +153,6 @@ class CompatibleWords:
             if left_to_right_compatible:
                 return True
         except exceptions.NotTranslated:
-            right_to_left_compatible = (
-                self._check_compatibility_left_to_right(self._homo,
-                                                        self._word))
-            return right_to_left_compatible
-        else:
-            right_to_left_compatible = (
-                self._check_compatibility_left_to_right(self._homo,
-                                                        self._word))
-            return right_to_left_compatible
-
-    @property
-    def word(self):
-        return self._word
-
-    @property
-    def homoglyph(self):
-        return self._homo
+            pass
+        return self._check_compatibility_left_to_right(self._homo,
+                                                       self._word)
