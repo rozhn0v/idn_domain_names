@@ -191,6 +191,19 @@ def _is_homoglyph_domain_valid(domain_unicode: Domain, homo_domain: Domain,
     return lang_check
 
 
+def valid_punycode_filter(domains: Iterator[Domain]) \
+        -> Iterator[Tuple[Domain, Domain]]:
+    for domain in domains:
+        if not domain.is_idna():
+            continue
+
+        try:
+            std_domain = domain.maybe_truncate_www()
+            yield (domain, std_domain.to_unicode())
+        except UnicodeError:
+            log.debug('failed to convert %s, report as non-phishing', domain)
+
+
 def detect_phishing(domains_to_check: Iterator[Domain],
                     ip_table: ipv4util.IpTable,
                     phishing_targets: Set[Domain],
@@ -220,27 +233,22 @@ def detect_phishing(domains_to_check: Iterator[Domain],
         returns a list containing the results of the detection routine.
 
     """
-    for domain in domains_to_check:
-        if not domain.is_idna():
+    for (domain, domain_unicode) in valid_punycode_filter(domains_to_check):
+        # If a domain is phishing, there possibly be more domains with
+        # different ASN than the same. though, two domains could belong
+        # to the same ASN and one could be phishing,
+        # if the ASN is of a ISP (not explored)
+        homoglyph_domains = domain_unicode.generate_possible_confusions()
+        homoglyph_domains = phishing_targets.intersection(homoglyph_domains)
+        if not homoglyph_domains:
             continue
-
-        domain_unicode = _to_unicode_or_none(domain)
-        if domain_unicode is None:
-            continue
-        assert domain_unicode is not None
 
         domain_ip, domain_asn = ip_table.get_ip_and_asn(domain)
         if domain_ip is None or domain_asn is None:
             log.debug('target %s is unresolvable, skip', domain)
             continue
 
-        # If a domain is phishing, there possibly be more domains with
-        # different ASN than the same. though, two domains could belong
-        # to the same ASN and one could be phishing,
-        # if the ASN is of a ISP (not explored)
         false_true_counter = 0
-        homoglyph_domains = domain_unicode.generate_possible_confusions()
-        homoglyph_domains = phishing_targets.intersection(homoglyph_domains)
         for homo_domain in homoglyph_domains:
             false_true_counter += (
                 _is_homoglyph_domain_valid(domain_unicode, homo_domain,
@@ -283,30 +291,6 @@ def _language_check(domain_unicode: Domain, homo_domain: Domain,
     else:
         false_true_counter -= 1
     return false_true_counter
-
-
-def _to_unicode_or_none(domain: Domain) -> Optional[Domain]:
-    """
-    Returns the converted idn domain, from punycode to unicode. Returns None
-    if an invalid punycode is given.
-
-    Parameters
-    ----------
-    domain : Domain
-        A Domain object which encapsulates the domain string.
-
-    Returns
-    -------
-    Domain or None
-        A Domain object which encapsulates the unicode version of the given
-        Domain, or None.
-    """
-    try:
-        std_domain = domain.maybe_truncate_www()
-        return std_domain.to_unicode()
-    except UnicodeError:
-        log.debug('failed to convert %s, report as non-phishing', domain)
-        return None
 
 
 def _delete_if_present(path: str):
