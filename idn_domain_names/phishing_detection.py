@@ -98,7 +98,7 @@ def load_phishing_targets(filename: str) -> Set[Domain]:
             domain = domain.maybe_truncate_www()
             if domain.is_idna():
                 domain = domain.to_unicode()
-                result.add(domain)
+            result.add(domain)
     return result
 
 
@@ -193,13 +193,29 @@ def _is_homoglyph_domain_valid(domain_unicode: Domain, homo_domain: Domain,
 
 def valid_punycode_filter(domains: Iterator[Domain]) \
         -> Iterator[Tuple[Domain, Domain]]:
+    """
+    Filter valid punycode domains on domains iterator and returns the punycode
+    domain together with it's unicode version if possible.
+
+    Parameters
+    ----------
+    domains : iterator of Domain
+        An iterator of Domain objects.
+
+    Returns
+    -------
+    iterator of tuple of Domain
+        A tuple containing, [0]: The Domain object to the valid punycode
+        domain, [1]: The Domain object of the unicode version of the valid
+        pynycode domain.
+    """
     for domain in domains:
         if not domain.is_idna():
             continue
 
         try:
             std_domain = domain.maybe_truncate_www()
-            yield (domain, std_domain.to_unicode())
+            yield domain, std_domain.to_unicode()
         except UnicodeError:
             log.debug('failed to convert %s, report as non-phishing', domain)
 

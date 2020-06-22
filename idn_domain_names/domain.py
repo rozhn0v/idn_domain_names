@@ -92,11 +92,11 @@ class Domain:
             predicate = has_non_ascii
 
         dn_split = self._fqdn.split('.')
-        xn_list = []
+        label_ids = list()
         for i, part in enumerate(dn_split):
             if predicate(part):
-                xn_list.append(i)
-        return xn_list
+                label_ids.append(i)
+        return label_ids
 
     @staticmethod
     def _is_ascii(string: str) -> bool:
@@ -119,6 +119,29 @@ class Domain:
         fqdn = self._fqdn.encode('ascii').decode('idna')
         return Domain(fqdn)
 
+    @staticmethod
+    def _generate_homo_list(unicode: str) \
+            -> List[str]:
+        """
+        Generate homoglyph list of unicode string.
+
+        Parameters
+        ----------
+        unicode : str
+            Unicode string.
+        idx : int
+            Index of dn_split of which the homoglyphs will be generated.
+
+        Returns
+        -------
+        homo_list : list of str
+            List of generated homoglyphs
+        """
+        homo_list = normalize(unicode)
+        non_ascii_removed = unicode.encode('utf-8').decode('ascii', 'ignore')
+        homo_list.append(non_ascii_removed)
+        return homo_list
+
     def generate_possible_confusions(self) -> Set[Domain]:
         """
         Generator to a series of possible confusion domain names for the given
@@ -129,11 +152,14 @@ class Domain:
         An generator of the possible confusions for the given dn_unicode,
         domain name.
         """
-        xn_idx = self.non_ascii_label_ids()
+        label_ids = self.non_ascii_label_ids()
         dn_split = self._fqdn.split('.')
-        for i in xn_idx:
-            dn_split[i] = normalize(dn_split[i])
-        dn_lists = map(lambda x: x if isinstance(x, list) else [x], dn_split)
+        dn_lists = list()
+        for idx, dn_part in enumerate(dn_split):
+            if idx in label_ids:
+                dn_lists.append(self._generate_homo_list(dn_part))
+            else:
+                dn_lists.append([dn_part])
         dn_iter = map('.'.join, product(*dn_lists))
         return {Domain(dn) for dn in dn_iter if
                 dn != self._fqdn and validators.domain(dn[:-1])}

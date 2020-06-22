@@ -53,7 +53,10 @@ class CompatibleWords:
         list of str
             The corrected list of words.
         """
-        spell_checker = SpellChecker(language=lang)
+        try:
+            spell_checker = SpellChecker(language=lang)
+        except ValueError:
+            return word_list
         corrected_word_list = []
         for word in word_list:
             corrected_word = spell_checker.correction(word)
@@ -182,15 +185,20 @@ class CompatibleWords:
             if left_to_right_compatible:
                 return True
         except exceptions.NotTranslated:
+            try:
+                right_to_left_compatible = (
+                    self._check_compatibility_left_to_right(self._homo,
+                                                            self._word))
+                return right_to_left_compatible
+            except exceptions.NotTranslated:
+                return False
+        try:
             right_to_left_compatible = (
                 self._check_compatibility_left_to_right(self._homo,
                                                         self._word))
-            return right_to_left_compatible
-        else:
-            right_to_left_compatible = (
-                self._check_compatibility_left_to_right(self._homo,
-                                                        self._word))
-            return right_to_left_compatible
+        except exceptions.NotTranslated:
+            return False
+        return right_to_left_compatible
 
     @property
     def word(self):
