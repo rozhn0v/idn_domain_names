@@ -3,10 +3,52 @@ from __future__ import annotations
 from typing import List
 
 from spellchecker import SpellChecker  # type: ignore
-from textblob import TextBlob, exceptions
+from textblob import TextBlob
+from textblob import exceptions
 
 
-class CompatibleWords:
+class Words:
+    def __init__(self, delegate: List[str]):
+        self.delegate = delegate
+
+    def spellcheck_words(self, lang: str) -> Words:
+        """
+        Correct the spelling for the words in the given list for the given
+        language.
+
+        Parameters
+        ----------
+        lang : str
+            The ISO 639-1 code of the language which the words are gonna be
+            checked to.
+
+        Returns
+        -------
+        list of str
+            The corrected list of words.
+        """
+        try:
+            spell_checker = SpellChecker(language=lang)
+        except ValueError:
+            return self
+        corrected_word_list = []
+        for word in self.delegate:
+            corrected_word = spell_checker.correction(word)
+            corrected_word_list.append(corrected_word)
+        return Words(corrected_word_list)
+
+    def to_phrase(self) -> str:
+        return ' '.join(self.delegate)
+
+    @staticmethod
+    def from_phrase(phrase: str) -> Words:
+        return Words(phrase.split(' '))
+
+    def __eq__(self, o: object) -> bool:
+        return isinstance(o, Words) and self.delegate == o.delegate
+
+
+class CompatibleWords:  # pylint: disable=too-few-public-methods
     def __init__(self, word: TextBlob, homoglyph: TextBlob):
         self._word = word
         self._homo = homoglyph
@@ -33,35 +75,6 @@ class CompatibleWords:
             from_lang=word_to_translate.detect_language(),
             to=target_lang)
         return str(translation)
-
-    @staticmethod
-    def _spellcheck_words(word_list: List[str], lang: str) -> List[str]:
-        """
-        Correct the spelling for the words in the given list for the given
-        language.
-
-        Parameters
-        ----------
-        word_list : list of str
-            A list of words to be checked for misspelling and corrected.
-        lang : str
-            The ISO 639-1 code of the language which the words are gonna be
-            checked to.
-
-        Returns
-        -------
-        list of str
-            The corrected list of words.
-        """
-        try:
-            spell_checker = SpellChecker(language=lang)
-        except ValueError:
-            return word_list
-        corrected_word_list = []
-        for word in word_list:
-            corrected_word = spell_checker.correction(word)
-            corrected_word_list.append(corrected_word)
-        return corrected_word_list
 
     @staticmethod
     def _transfer_space_from_phrase_to_word(phrase: str, word: str) -> str:
@@ -91,42 +104,6 @@ class CompatibleWords:
         return new_phrase
 
     @staticmethod
-    def _split_phrase_into_word_list(phrase: str) -> List[str]:
-        """
-        Turn a phrase with words separated by spaces into a list of words.
-
-        Parameters
-        ----------
-        phrase : str
-            A phrase of words separated by spaces.
-
-        Returns
-        -------
-        list of str
-            A list of the words of the given phrase.
-        """
-        return phrase.split(' ')
-
-    @staticmethod
-    def _word_list_to_phrase(word_list: List[str]) -> str:
-        """
-        Turn a list of words into a phrase of the same words separated by
-        spaces.
-
-        Parameters
-        ----------
-        word_list : list of str
-            A list of words.
-
-        Returns
-        -------
-        str
-            A phrase containing the words of the given list separated by
-            spaces.
-        """
-        return ' '.join(word_list)
-
-    @staticmethod
     def _check_compatibility_left_to_right(left_word: TextBlob,
                                            right_word: TextBlob) -> bool:
         """
@@ -152,18 +129,12 @@ class CompatibleWords:
                                                             target_lang))
         right_phrase = (CompatibleWords._transfer_space_from_phrase_to_word(
             translated_word, str(right_word)))
-        left_words = (CompatibleWords
-                      ._split_phrase_into_word_list(translated_word))
-        right_words = (CompatibleWords
-                       ._split_phrase_into_word_list(right_phrase))
-        corrected_left_words = CompatibleWords._spellcheck_words(left_words,
-                                                                 target_lang)
-        corrected_right_words = CompatibleWords._spellcheck_words(right_words,
-                                                                  target_lang)
-        corrected_left_phrase = (
-            CompatibleWords._word_list_to_phrase(corrected_left_words))
-        corrected_right_phrase = (
-            CompatibleWords._word_list_to_phrase(corrected_right_words))
+        left_words = Words.from_phrase(translated_word)
+        right_words = Words.from_phrase(right_phrase)
+        corrected_left_words = left_words.spellcheck_words(target_lang)
+        corrected_right_words = right_words.spellcheck_words(target_lang)
+        corrected_left_phrase = corrected_left_words.to_phrase()
+        corrected_right_phrase = corrected_right_words.to_phrase()
         return corrected_left_phrase == corrected_right_phrase
 
     def check_compatibility(self) -> bool:
@@ -199,11 +170,3 @@ class CompatibleWords:
         except exceptions.NotTranslated:
             return False
         return right_to_left_compatible
-
-    @property
-    def word(self):
-        return self._word
-
-    @property
-    def homoglyph(self):
-        return self._homo

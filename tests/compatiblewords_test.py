@@ -1,7 +1,15 @@
 import unittest
 
 from textblob import TextBlob
-from idn_domain_names.compatiblewords import CompatibleWords
+
+from idn_domain_names.compatiblewords import CompatibleWords, Words
+
+
+class WordsTest(unittest.TestCase):
+    def test_spellcheck_words(self):
+        words = Words(['hrse', 'wyne'])
+        expected = Words(['horse', 'wine'])
+        self.assertEqual(expected, words.spellcheck_words('en'))
 
 
 class CompatibleWordsTest(unittest.TestCase):
@@ -9,12 +17,6 @@ class CompatibleWordsTest(unittest.TestCase):
         word = TextBlob('horse')
         actual = CompatibleWords._translate_word_to_another_lang(word, 'pt')
         expected = 'cavalo'
-        self.assertEqual(expected, actual)
-
-    def test__spellcheck_words(self):
-        word_list = ['hrse', 'wyne']
-        actual = CompatibleWords._spellcheck_words(word_list, 'en')
-        expected = ['horse', 'wine']
         self.assertEqual(expected, actual)
 
     def test__transfer_space_from_phrase_to_word(self):
