@@ -27,7 +27,10 @@ class Words:
         list of str
             The corrected list of words.
         """
-        spell_checker = SpellChecker(language=lang)
+        try:
+            spell_checker = SpellChecker(language=lang)
+        except ValueError:
+            return self
         corrected_word_list = []
         for word in self.delegate:
             corrected_word = spell_checker.correction(word)
@@ -153,6 +156,17 @@ class CompatibleWords:  # pylint: disable=too-few-public-methods
             if left_to_right_compatible:
                 return True
         except exceptions.NotTranslated:
-            pass
-        return self._check_compatibility_left_to_right(self._homo,
-                                                       self._word)
+            try:
+                right_to_left_compatible = (
+                    self._check_compatibility_left_to_right(self._homo,
+                                                            self._word))
+                return right_to_left_compatible
+            except exceptions.NotTranslated:
+                return False
+        try:
+            right_to_left_compatible = (
+                self._check_compatibility_left_to_right(self._homo,
+                                                        self._word))
+        except exceptions.NotTranslated:
+            return False
+        return right_to_left_compatible

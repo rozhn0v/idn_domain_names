@@ -27,7 +27,7 @@ class DomainTest(unittest.TestCase):
         punycode = Domain('xn--jana-sovkov-r7ad.seria-z.net.')
         unicode = Domain('jana-sováková.seria-z.net.')
 
-        expected = [0]
+        expected = {0}
         self.assertEqual(expected, punycode.non_ascii_label_ids())
         self.assertEqual(expected, unicode.non_ascii_label_ids())
 
