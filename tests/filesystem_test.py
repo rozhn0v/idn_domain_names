@@ -11,4 +11,4 @@ class FileSystemModuleTest(unittest.TestCase):
         ]
         actual = fs.parse_targets_source(source)
         expected = {Domain('foo.bar.'), Domain('some.domain.')}
-        self.assertEquals(expected, actual)
+        self.assertEqual(expected, actual)

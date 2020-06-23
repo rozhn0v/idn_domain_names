@@ -23,7 +23,7 @@ def load_phishing_targets(filename: str) -> Set[Domain]:
         return parse_targets_source(source)
 
 
-def parse_targets_source(source):
+def parse_targets_source(source: Iterator[str]) -> Set[Domain]:
     result = set()
     tsv_f = csv.reader(source, delimiter='\t')
     for line in tsv_f:
@@ -35,13 +35,13 @@ def parse_targets_source(source):
     return result
 
 
-def read_datafile(datafile: str) -> Iterator[Domain]:
+def read_datafile(datafile) -> Iterator[Domain]:
     """
     Create a generator to the domain list to be classified.
 
     Parameters
     ----------
-    datafile : str
+    datafile
         The path to the tsv file containing the list of domain names to be
         classified.
 
@@ -51,19 +51,15 @@ def read_datafile(datafile: str) -> Iterator[Domain]:
     """
     if isinstance(datafile, str):
         domain_list_file = open(datafile, 'r')
-        domain_list_tsv = csv.reader(domain_list_file, delimiter='\t')
     else:
         domain_list_file = datafile
-        domain_list_tsv = csv.reader(domain_list_file, delimiter='\t')
-    for line in domain_list_tsv:
-        yield Domain(line[0])
+    for line in domain_list_file:
+        yield Domain(line)
 
 
-def dump_result(domain: Domain, file_path: str, is_phishing: bool) -> None:
+def report_phishing(domain: Domain, file_path: str):
     """
-    Writes the domain and is_phishing value to a file in a csv (comma separated
-    values) format, if file is given, if file is None, appends is_phishing
-    to phishing_list list.
+    Writes phishing domains
 
     Parameters
     ----------
@@ -71,21 +67,9 @@ def dump_result(domain: Domain, file_path: str, is_phishing: bool) -> None:
         Domain name to write to file, if file is given.
     file_path : str
         the information will be written to a file
-    is_phishing : bool
-        Contains the information whether the given domain is a phishing
-        candidate or not.
     """
-    if not is_phishing:
-        return
     with open(file_path, 'a+') as output:
-        file_ext = file_path.split('.')[-1]
-        if file_ext == 'csv':
-            output.write('%s,%d\n' % (domain, int(is_phishing)))
-        elif file_ext == 'tsv':
-            output.write('%s\t%d\n' % (domain, int(is_phishing)))
-        else:
-            raise ValueError(
-                'Invalid file_path extension, use TSV or CSV file_path.')
+        output.write('%s\n' % domain)
 
 
 def delete_if_present(path: str):

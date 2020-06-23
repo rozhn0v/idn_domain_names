@@ -183,13 +183,13 @@ def detect_phishing(domains_to_check: Iterator[Domain],
             log.debug('target %s is unresolvable, skip', domain)
             continue
 
-        false_true_counter = 0
+        phishing_points = 0
         for homo_domain in homoglyph_domains:
-            false_true_counter += (
+            phishing_points += (
                 _is_homoglyph_domain_valid(domain_unicode, homo_domain,
                                            ip_table, domain_asn))
-        is_phishing = false_true_counter < 0
-        fs.dump_result(domain, path_to_output, is_phishing)
+        if phishing_points < 0:
+            fs.report_phishing(domain, path_to_output)
 
 
 def _language_check(domain_unicode: Domain, homo_domain: Domain,
