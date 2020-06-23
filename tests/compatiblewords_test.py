@@ -2,7 +2,9 @@ import unittest
 
 from textblob import TextBlob
 
-from idn_domain_names.compatiblewords import CompatibleWords, Words
+import idn_domain_names.compatiblewords as cw
+from idn_domain_names.compatiblewords import CompatibleWords
+from idn_domain_names.compatiblewords import Words
 
 
 class WordsTest(unittest.TestCase):
@@ -13,42 +15,18 @@ class WordsTest(unittest.TestCase):
 
 
 class CompatibleWordsTest(unittest.TestCase):
-    def test__translate_word_to_another_lang(self):
-        word = TextBlob('horse')
-        actual = CompatibleWords._translate_word_to_another_lang(word, 'pt')
-        expected = 'cavalo'
+    def test_transfer_space_from_phrase_to_word(self):
+        expected = 'hello there'
+        actual = cw.transfer_space_from_phrase_to_word(expected, 'hellothere')
         self.assertEqual(expected, actual)
 
-    def test__transfer_space_from_phrase_to_word(self):
-        phrase = 'hello there'
-        word = 'hellothere'
-        actual = CompatibleWords._transfer_space_from_phrase_to_word(phrase,
-                                                                     word)
-        expected = phrase
-        self.assertEqual(expected, actual)
-
-    def test__check_compatibility_left_to_right_when_true(self):
-        left_word = TextBlob('frasescélebres')
-        right_word = TextBlob('frasescelebres')
-        actual = CompatibleWords._check_compatibility_left_to_right(left_word,
-                                                                    right_word)
-        self.assertTrue(actual)
-
-    def test__check_compatibility_left_to_right_when_false(self):
-        left_word = TextBlob('gmail')
-        right_word = TextBlob('gmailç')
-        actual = CompatibleWords._check_compatibility_left_to_right(left_word,
-                                                                    right_word)
-        self.assertFalse(actual)
-
-    def test_check_compatibility_when_true(self):
+    def test_check_compatibility(self):
         word = TextBlob('frasescélebres')
         homoglyph = TextBlob('frasescelebres')
-        actual = CompatibleWords(word, homoglyph).check_compatibility()
-        self.assertTrue(actual)
+        self.assertTrue(CompatibleWords(word, homoglyph).check_compatibility())
 
-    def test_check_compatibility_when_false(self):
+    def test_check_compatibility_with_extra_symbol(self):
         word = TextBlob('gmailç')
         homoglyph = TextBlob('gmail')
-        actual = CompatibleWords(word, homoglyph).check_compatibility()
-        self.assertFalse(actual)
+        words = CompatibleWords(word, homoglyph)
+        self.assertFalse(words.check_compatibility())

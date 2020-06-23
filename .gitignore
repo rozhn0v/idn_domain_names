@@ -9,3 +9,5 @@ env
 MANIFEST
 .tox
 .mypy_cache
+.coverage*
+htmlcov
