@@ -77,33 +77,6 @@ class CompatibleWords:  # pylint: disable=too-few-public-methods
         return str(translation)
 
     @staticmethod
-    def _transfer_space_from_phrase_to_word(phrase: str, word: str) -> str:
-        """
-        Transfer the space present in the given phrase to the same position
-        of the given word.
-
-        Parameters
-        ----------
-        phrase : str
-            Words separated by spaces.
-        word : str
-            A single word, without spaces.
-
-        Returns
-        -------
-        str
-            The word with spaces added to the same positions of the given
-            phrase.
-        """
-        new_phrase = ''
-        for phrase_letter, word_letter in zip(phrase, word):
-            if phrase_letter == ' ':
-                new_phrase += ' ' + word_letter
-            else:
-                new_phrase += word_letter
-        return new_phrase
-
-    @staticmethod
     def _check_compatibility_left_to_right(left_word: TextBlob,
                                            right_word: TextBlob) -> bool:
         """
@@ -127,8 +100,8 @@ class CompatibleWords:  # pylint: disable=too-few-public-methods
         translated_word = (CompatibleWords
                            ._translate_word_to_another_lang(left_word,
                                                             target_lang))
-        right_phrase = (CompatibleWords._transfer_space_from_phrase_to_word(
-            translated_word, str(right_word)))
+        right_phrase = transfer_space_from_phrase_to_word(
+            translated_word, str(right_word))
         left_words = Words.from_phrase(translated_word)
         right_words = Words.from_phrase(right_phrase)
         corrected_left_words = left_words.spellcheck_words(target_lang)
@@ -170,3 +143,30 @@ class CompatibleWords:  # pylint: disable=too-few-public-methods
         except exceptions.NotTranslated:
             return False
         return right_to_left_compatible
+
+
+def transfer_space_from_phrase_to_word(phrase: str, word: str) -> str:
+    """
+    Transfer the space present in the given phrase to the same position
+    of the given word.
+
+    Parameters
+    ----------
+    phrase : str
+        Words separated by spaces.
+    word : str
+        A single word, without spaces.
+
+    Returns
+    -------
+    str
+        The word with spaces added to the same positions of the given
+        phrase.
+    """
+    new_phrase = ''
+    for phrase_letter, word_letter in zip(phrase, word):
+        if phrase_letter == ' ':
+            new_phrase += ' ' + word_letter
+        else:
+            new_phrase += word_letter
+    return new_phrase
