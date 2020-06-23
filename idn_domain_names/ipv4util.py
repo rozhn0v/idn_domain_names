@@ -4,11 +4,8 @@ import csv
 import logging
 import socket
 from functools import lru_cache
-from typing import List
-from typing import Optional
-from typing import Tuple
-
 from ipaddress import IPv4Address
+from typing import List, Optional, Tuple
 
 from idn_domain_names.domain import Domain
 
