@@ -7,7 +7,7 @@ from typing import Iterator, List, Optional, Set, Tuple
 import grequests
 from bs4 import BeautifulSoup
 
-import filesystem as fs
+import idn_domain_names.filesystem as fs
 import idn_domain_names.ipv4util as ipv4util
 from idn_domain_names.domain import Domain
 

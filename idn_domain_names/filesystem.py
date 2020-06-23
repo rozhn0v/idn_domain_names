@@ -19,15 +19,19 @@ def load_phishing_targets(filename: str) -> Set[Domain]:
     -------
     Generator of the phishing target list.
     """
-    result = set()
     with gzip.open(filename, 'rt') as source:
-        tsv_f = csv.reader(source, delimiter='\t')
-        for line in tsv_f:
-            domain = Domain(line[1] + '.')
-            domain = domain.maybe_truncate_www()
-            if domain.is_idna():
-                domain = domain.to_unicode()
-            result.add(domain)
+        return parse_targets_source(source)
+
+
+def parse_targets_source(source):
+    result = set()
+    tsv_f = csv.reader(source, delimiter='\t')
+    for line in tsv_f:
+        domain = Domain(line[1] + '.')
+        domain = domain.maybe_truncate_www()
+        if domain.is_idna():
+            domain = domain.to_unicode()
+        result.add(domain)
     return result
 
 

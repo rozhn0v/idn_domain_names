@@ -199,3 +199,6 @@ class Domain:
 
     def __str__(self) -> str:
         return self._fqdn
+
+    def __repr__(self) -> str:
+        return str(self)
