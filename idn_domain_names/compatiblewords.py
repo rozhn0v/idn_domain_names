@@ -122,6 +122,7 @@ class CompatibleWords:  # pylint: disable=too-few-public-methods
         """
         if self._word == self._homo:
             return True
+
         try:
             left_to_right_compatible = (
                 self._check_compatibility_left_to_right(self._word,
@@ -129,20 +130,13 @@ class CompatibleWords:  # pylint: disable=too-few-public-methods
             if left_to_right_compatible:
                 return True
         except exceptions.NotTranslated:
-            try:
-                right_to_left_compatible = (
-                    self._check_compatibility_left_to_right(self._homo,
-                                                            self._word))
-                return right_to_left_compatible
-            except exceptions.NotTranslated:
-                return False
+            pass
+
         try:
-            right_to_left_compatible = (
-                self._check_compatibility_left_to_right(self._homo,
-                                                        self._word))
+            return self._check_compatibility_left_to_right(self._homo,
+                                                           self._word)
         except exceptions.NotTranslated:
             return False
-        return right_to_left_compatible
 
 
 def transfer_space_from_phrase_to_word(phrase: str, word: str) -> str:
