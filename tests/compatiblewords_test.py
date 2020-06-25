@@ -8,15 +8,14 @@ from idn_domain_names.compatiblewords import CompatibleWords
 
 class WordsTest(unittest.TestCase):
     def test_spellcheck(self):
-        def cons(language: str):
+        def factory(language: str):
             result = MagicMock()
             result.correction.side_effect = ['horse', 'wine']
             return result
 
-        check = cw.MySpellChecker(factory=cons)
-
         expected = ['horse', 'wine']
-        self.assertEqual(expected, check.spellcheck('hrse wyne', 'en'))
+        actual = cw.spell_check('hrse wyne', 'en', factory=factory)
+        self.assertEqual(expected, actual)
 
 
 class CompatibleWordsTest(unittest.TestCase):
@@ -28,19 +27,28 @@ class CompatibleWordsTest(unittest.TestCase):
     def test_check_compatibility(self):
         word = TextBlobStub('frasescélebres', 'es', 'frases célebres')
         homoglyph = TextBlobStub('frasescelebres', 'pt')
-        self.assertTrue(CompatibleWords(word, homoglyph,
-                                        SpellCheckerStub).check_compatibility())
+
+        stub = SpellCheckerStub({
+            'frases célebres': 'frases celebres',
+            'frases celebres': 'frases celebres'
+        })
+
+        words = CompatibleWords(word, homoglyph, stub.spellcheck)
+        self.assertTrue(words.check_compatibility())
 
     def test_check_compatibility_with_extra_symbol(self):
         word = TextBlobStub('gmailç', 'fr')
         homoglyph = TextBlobStub('gmail', 'en')
-        words = CompatibleWords(word, homoglyph, SpellCheckerStub)
+        words = CompatibleWords(word, homoglyph, None)
         self.assertFalse(words.check_compatibility())
 
 
-class SpellCheckerStub(cw.MySpellChecker):
+class SpellCheckerStub:
+    def __init__(self, mapping):
+        self.mapping = mapping
+
     def spellcheck(self, phrase: str, lang: str) -> List[str]:
-        return phrase.split(' ')
+        return self.mapping[phrase]
 
 
 class TextBlobStub:
