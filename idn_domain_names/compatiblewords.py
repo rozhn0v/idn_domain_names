@@ -41,14 +41,14 @@ class MySpellChecker:
 
 
 class CompatibleWords:  # pylint: disable=too-few-public-methods
-    def __init__(self, word: TextBlob, homoglyph: TextBlob):
-        self.ch = MySpellChecker()
+    def __init__(self, word: TextBlob, homoglyph: TextBlob,
+                 checker=MySpellChecker):
+        self._checker = checker()
         self._word = word
         self._homo = homoglyph
 
     @staticmethod
-    def _translate_word_to_another_lang(word_to_translate: TextBlob,
-                                        target_lang: str) -> str:
+    def _translate(word_to_translate: TextBlob, target_lang: str) -> str:
         """
         Translate a word to a given language.
 
@@ -69,8 +69,8 @@ class CompatibleWords:  # pylint: disable=too-few-public-methods
             to=target_lang)
         return str(translation)
 
-    def _check_compatibility_left_to_right(self, left_word: TextBlob,
-                                           right_word: TextBlob) -> bool:
+    def _check_compatibility_left_to_right(
+            self, left_word: TextBlob, right_word: TextBlob) -> bool:
         """
         Check the words' compatibility from left to right.
 
@@ -89,13 +89,13 @@ class CompatibleWords:  # pylint: disable=too-few-public-methods
         if len(left_word) != len(right_word):
             return False
         target_lang = right_word.detect_language()
-        translated_word = (CompatibleWords
-                           ._translate_word_to_another_lang(left_word,
-                                                            target_lang))
+        translated_word = (CompatibleWords._translate(left_word, target_lang))
         right_phrase = transfer_space_from_phrase_to_word(
             translated_word, str(right_word))
-        corrected_left_words = self.ch.spellcheck(translated_word, target_lang)
-        corrected_right_words = self.ch.spellcheck(right_phrase, target_lang)
+        corrected_left_words = self._checker.spellcheck(
+            translated_word, target_lang)
+        corrected_right_words = self._checker.spellcheck(
+            right_phrase, target_lang)
         return corrected_left_words == corrected_right_words
 
     def check_compatibility(self) -> bool:

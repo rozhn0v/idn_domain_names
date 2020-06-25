@@ -1,4 +1,5 @@
 import unittest
+from typing import List
 from unittest.mock import MagicMock
 
 import idn_domain_names.compatiblewords as cw
@@ -27,13 +28,19 @@ class CompatibleWordsTest(unittest.TestCase):
     def test_check_compatibility(self):
         word = TextBlobStub('frasescélebres', 'es', 'frases célebres')
         homoglyph = TextBlobStub('frasescelebres', 'pt')
-        self.assertTrue(CompatibleWords(word, homoglyph).check_compatibility())
+        self.assertTrue(CompatibleWords(word, homoglyph,
+                                        SpellCheckerStub).check_compatibility())
 
     def test_check_compatibility_with_extra_symbol(self):
         word = TextBlobStub('gmailç', 'fr')
         homoglyph = TextBlobStub('gmail', 'en')
-        words = CompatibleWords(word, homoglyph)
+        words = CompatibleWords(word, homoglyph, SpellCheckerStub)
         self.assertFalse(words.check_compatibility())
+
+
+class SpellCheckerStub(cw.MySpellChecker):
+    def spellcheck(self, phrase: str, lang: str) -> List[str]:
+        return phrase.split(' ')
 
 
 class TextBlobStub:
