@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List
 
-from spellchecker import SpellChecker
+from spellchecker import SpellChecker  # type: ignore
 from textblob import TextBlob
 from textblob import exceptions
 
@@ -25,13 +25,14 @@ def spell_check(phrase: str, lang: str, factory=SpellChecker) -> List[str]:
     list of str
         The corrected list of words.
     """
+    tokens = phrase.split(' ')
     try:
         spell_checker = factory(language=lang)
     except ValueError:
-        return phrase.split(' ')
+        return tokens
 
     corrected_word_list = []
-    for word in phrase.split(' '):
+    for word in tokens:
         corrected_word = spell_checker.correction(word)
         corrected_word_list.append(corrected_word)
     return corrected_word_list
@@ -62,8 +63,7 @@ class CompatibleWords:  # pylint: disable=too-few-public-methods
             The translation of the given word to the target language.
         """
         translation = word_to_translate.translate(
-            from_lang=word_to_translate.detect_language(),
-            to=target_lang)
+            word_to_translate.detect_language(), target_lang)
         return str(translation)
 
     def _check_compatibility_left_to_right(

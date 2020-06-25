@@ -1,5 +1,4 @@
 import unittest
-from typing import List
 from unittest.mock import MagicMock
 
 import idn_domain_names.compatiblewords as cw
@@ -8,7 +7,7 @@ from idn_domain_names.compatiblewords import CompatibleWords
 
 class WordsTest(unittest.TestCase):
     def test_spellcheck(self):
-        def factory(language: str):
+        def factory(language: str):  # pylint: disable=unused-argument
             result = MagicMock()
             result.correction.side_effect = ['horse', 'wine']
             return result
@@ -28,12 +27,15 @@ class CompatibleWordsTest(unittest.TestCase):
         word = TextBlobStub('frasescélebres', 'es', 'frases célebres')
         homoglyph = TextBlobStub('frasescelebres', 'pt')
 
-        stub = SpellCheckerStub({
+        phrase_to_checked = {
             'frases célebres': 'frases celebres',
             'frases celebres': 'frases celebres'
-        })
+        }
 
-        words = CompatibleWords(word, homoglyph, stub.spellcheck)
+        def check(phrase, _):
+            return phrase_to_checked[phrase]
+
+        words = CompatibleWords(word, homoglyph, check)
         self.assertTrue(words.check_compatibility())
 
     def test_check_compatibility_with_extra_symbol(self):
@@ -41,14 +43,6 @@ class CompatibleWordsTest(unittest.TestCase):
         homoglyph = TextBlobStub('gmail', 'en')
         words = CompatibleWords(word, homoglyph, None)
         self.assertFalse(words.check_compatibility())
-
-
-class SpellCheckerStub:
-    def __init__(self, mapping):
-        self.mapping = mapping
-
-    def spellcheck(self, phrase: str, lang: str) -> List[str]:
-        return self.mapping[phrase]
 
 
 class TextBlobStub:
@@ -63,7 +57,7 @@ class TextBlobStub:
     def detect_language(self):
         return self.lang
 
-    def translate(self, from_lang, to):
+    def translate(self, _, __):
         return self.translation
 
     def __repr__(self):
