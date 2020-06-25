@@ -1,4 +1,5 @@
 import unittest
+
 import idn_domain_names.filesystem as fs
 from idn_domain_names.domain import Domain
 

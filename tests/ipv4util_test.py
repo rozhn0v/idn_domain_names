@@ -1,9 +1,8 @@
 import unittest
-
 from ipaddress import IPv4Address
 
 from idn_domain_names.domain import Domain
-from idn_domain_names.ipv4util import IpTable, ClosedRange
+from idn_domain_names.ipv4util import ClosedRange, IpTable
 
 
 class Ipv4UtilsTest(unittest.TestCase):
