@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from typing import List
 
-from spellchecker import SpellChecker  # type: ignore
+from spellchecker import SpellChecker
 from textblob import TextBlob, exceptions
 
 
 class Words:
-    def __init__(self, delegate: List[str]):
+    def __init__(self, delegate: List[str], spell_checker=SpellChecker):
         self.delegate = delegate
+        self.spell_checker = spell_checker
 
     def spellcheck_words(self, lang: str) -> Words:
         """
@@ -27,7 +28,7 @@ class Words:
             The corrected list of words.
         """
         try:
-            spell_checker = SpellChecker(language=lang)
+            spell_checker = self.spell_checker(language=lang)
         except ValueError:
             return self
         corrected_word_list = []
@@ -46,7 +47,11 @@ class Words:
     def __eq__(self, o: object) -> bool:
         return isinstance(o, Words) and self.delegate == o.delegate
 
+    def __repr__(self) -> str:
+        return str(self.delegate)
 
+
+# TODO textblob
 class CompatibleWords:  # pylint: disable=too-few-public-methods
     def __init__(self, word: TextBlob, homoglyph: TextBlob):
         self._word = word

@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import MagicMock
 
 from textblob import TextBlob
 
@@ -9,7 +10,12 @@ from idn_domain_names.compatiblewords import Words
 
 class WordsTest(unittest.TestCase):
     def test_spellcheck_words(self):
-        words = Words(['hrse', 'wyne'])
+        def cons(language: str):
+            result = MagicMock()
+            result.correction.side_effect = ['horse', 'wine']
+            return result
+
+        words = Words(['hrse', 'wyne'], spell_checker=cons)
         expected = Words(['horse', 'wine'])
         self.assertEqual(expected, words.spellcheck_words('en'))
 
