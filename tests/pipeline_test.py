@@ -2,14 +2,14 @@ import unittest
 from ipaddress import IPv4Address
 from unittest.mock import ANY, Mock, PropertyMock, patch
 
-import idn_domain_names.phishing_detection as pd
+import idn_domain_names.pipeline as pipeline
 from idn_domain_names.domain import Domain
 
 
 class PhishingDetectionTest(unittest.TestCase):
     def test_valid_punycode_filter(self):
         punycode = Domain('xn--bcher-kva.tld.')
-        actual = pd.valid_punycode_filter([punycode])
+        actual = pipeline.valid_punycode_filter([punycode])
         actual = next(actual)
         expected = (punycode, Domain('bücher.tld.'))
         self.assertEqual(expected, actual)
@@ -19,7 +19,7 @@ class PhishingDetectionTest(unittest.TestCase):
     def test_get_lang_by_ip_when_response_is_none(self, g_map, g_get):
         g_map.return_value = [None]
 
-        actual = pd.get_lang_by_ip([IPv4Address('1.2.3.4')])
+        actual = pipeline.get_lang_by_ip([IPv4Address('1.2.3.4')])
 
         self.assertEqual([None], actual)
         g_get.assert_called()
@@ -33,7 +33,7 @@ class PhishingDetectionTest(unittest.TestCase):
         type(response).content = content
         g_map.return_value = [response]
 
-        actual = pd.get_lang_by_ip([IPv4Address('1.2.3.4')])
+        actual = pipeline.get_lang_by_ip([IPv4Address('1.2.3.4')])
 
         self.assertEqual([None], actual)
         content.assert_called()
@@ -47,12 +47,12 @@ class PhishingDetectionTest(unittest.TestCase):
         type(response).content = content
         g_map.return_value = [response]
 
-        actual = pd.get_lang_by_ip([IPv4Address('1.2.3.4')])
+        actual = pipeline.get_lang_by_ip([IPv4Address('1.2.3.4')])
 
         self.assertEqual(['ru'], actual)
         g_get.assert_called()
 
-    @patch('idn_domain_names.phishing_detection._is_homoglyph_domain_valid')
+    @patch('idn_domain_names.pipeline._is_homoglyph_domain_valid')
     @patch('idn_domain_names.filesystem.report_phishing')
     def test_detect_phishing(self, report_phishing, domain_validation):
         phishing = Domain('xn--bcher-kva.tld.')
@@ -62,10 +62,10 @@ class PhishingDetectionTest(unittest.TestCase):
 
         domain_validation.return_value = -1
 
-        pd.detect_phishing(domains_to_check=[phishing],
-                           ip_table=table,
-                           phishing_targets={Domain('bucher.tld.')},
-                           path_to_output='unused')
+        pipeline.detect_phishing(domains_to_check=[phishing],
+                                 ip_table=table,
+                                 phishing_targets={Domain('bucher.tld.')},
+                                 path_to_output='unused')
 
         report_phishing.assert_called_with(phishing, ANY)
         self.assertTrue(domain_validation.mock_calls)
