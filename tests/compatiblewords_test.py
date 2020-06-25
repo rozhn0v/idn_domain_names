@@ -7,12 +7,11 @@ from idn_domain_names.compatiblewords import CompatibleWords
 
 class WordsTest(unittest.TestCase):
     def test_spellcheck(self):
-        def factory(language: str):  # pylint: disable=unused-argument
-            result = MagicMock()
-            result.correction.side_effect = ['horse', 'wine']
-            return result
-
         expected = ['horse', 'wine']
+
+        factory = MagicMock()
+        factory().correction.side_effect = ['horse', 'wine']
+
         actual = cw.spell_check('hrse wyne', 'en', factory=factory)
         self.assertEqual(expected, actual)
 
