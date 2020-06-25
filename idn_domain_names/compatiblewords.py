@@ -3,21 +3,22 @@ from __future__ import annotations
 from typing import List
 
 from spellchecker import SpellChecker
-from textblob import TextBlob, exceptions
+from textblob import TextBlob
+from textblob import exceptions
 
 
-class Words:
-    def __init__(self, delegate: List[str], spell_checker=SpellChecker):
-        self.delegate = delegate
-        self.spell_checker = spell_checker
+class MySpellChecker:
+    def __init__(self, factory=SpellChecker):
+        self.factory = factory
 
-    def spellcheck(self, lang: str) -> Words:
+    def spellcheck(self, phrase: str, lang: str) -> List[str]:
         """
         Correct the spelling for the words in the given list for the given
         language.
 
         Parameters
         ----------
+        phrase : str - checked phrase
         lang : str
             The ISO 639-1 code of the language which the words are gonna be
             checked to.
@@ -28,29 +29,20 @@ class Words:
             The corrected list of words.
         """
         try:
-            spell_checker = self.spell_checker(language=lang)
+            spell_checker = self.factory(language=lang)
         except ValueError:
-            return self
+            return phrase.split(' ')
+
         corrected_word_list = []
-        for word in self.delegate:
+        for word in phrase.split(' '):
             corrected_word = spell_checker.correction(word)
             corrected_word_list.append(corrected_word)
-        return Words(corrected_word_list)
-
-    @staticmethod
-    def from_phrase(phrase: str) -> Words:
-        return Words(phrase.split(' '))
-
-    def __eq__(self, o: object) -> bool:
-        return isinstance(o, Words) and self.delegate == o.delegate
-
-    def __repr__(self) -> str:
-        return str(self.delegate)
+        return corrected_word_list
 
 
-# TODO textblob
 class CompatibleWords:  # pylint: disable=too-few-public-methods
     def __init__(self, word: TextBlob, homoglyph: TextBlob):
+        self.ch = MySpellChecker()
         self._word = word
         self._homo = homoglyph
 
@@ -77,8 +69,7 @@ class CompatibleWords:  # pylint: disable=too-few-public-methods
             to=target_lang)
         return str(translation)
 
-    @staticmethod
-    def _check_compatibility_left_to_right(left_word: TextBlob,
+    def _check_compatibility_left_to_right(self, left_word: TextBlob,
                                            right_word: TextBlob) -> bool:
         """
         Check the words' compatibility from left to right.
@@ -103,10 +94,8 @@ class CompatibleWords:  # pylint: disable=too-few-public-methods
                                                             target_lang))
         right_phrase = transfer_space_from_phrase_to_word(
             translated_word, str(right_word))
-        left_words = Words.from_phrase(translated_word)
-        right_words = Words.from_phrase(right_phrase)
-        corrected_left_words = left_words.spellcheck(target_lang)
-        corrected_right_words = right_words.spellcheck(target_lang)
+        corrected_left_words = self.ch.spellcheck(translated_word, target_lang)
+        corrected_right_words = self.ch.spellcheck(right_phrase, target_lang)
         return corrected_left_words == corrected_right_words
 
     def check_compatibility(self) -> bool:
