@@ -14,35 +14,43 @@ class PhishingDetectionTest(unittest.TestCase):
         expected = (punycode, Domain('bücher.tld.'))
         self.assertEqual(expected, actual)
 
-    def test_get_lang_by_ip_when_response_is_none(self):
-        lib = Mock()
-        lib.map.side_effect = [[None]]
-        actual = pd.get_lang_by_ip([IPv4Address('1.2.3.4')], lib)
-        self.assertEqual([None], actual)
-        lib.get.assert_called()
+    @patch('grequests.get')
+    @patch('grequests.map')
+    def test_get_lang_by_ip_when_response_is_none(self, g_map, g_get):
+        g_map.return_value = [None]
 
-    def test_get_lang_by_ip_when_content_is_none(self):
+        actual = pd.get_lang_by_ip([IPv4Address('1.2.3.4')])
+
+        self.assertEqual([None], actual)
+        g_get.assert_called()
+        g_map.assert_called()
+
+    @patch('grequests.get')
+    @patch('grequests.map')
+    def test_get_lang_by_ip_when_content_is_none(self, g_map, g_get):
         response = Mock()
         content = PropertyMock(return_value='')
         type(response).content = content
+        g_map.return_value = [response]
 
-        lib = Mock()
-        lib.map = Mock(return_value=[response])
+        actual = pd.get_lang_by_ip([IPv4Address('1.2.3.4')])
 
-        actual = pd.get_lang_by_ip([IPv4Address('1.2.3.4')], lib)
         self.assertEqual([None], actual)
         content.assert_called()
+        g_get.assert_called()
 
-    def test_get_lang_by_ip(self):
+    @patch('grequests.get')
+    @patch('grequests.map')
+    def test_get_lang_by_ip(self, g_map, g_get):
         response = Mock()
         content = PropertyMock(return_value='<html lang="ru"></html>')
         type(response).content = content
+        g_map.return_value = [response]
 
-        lib = Mock()
-        lib.map = Mock(return_value=[response])
+        actual = pd.get_lang_by_ip([IPv4Address('1.2.3.4')])
 
-        actual = pd.get_lang_by_ip([IPv4Address('1.2.3.4')], lib)
         self.assertEqual(['ru'], actual)
+        g_get.assert_called()
 
     @patch('idn_domain_names.phishing_detection._is_homoglyph_domain_valid')
     @patch('idn_domain_names.filesystem.report_phishing')

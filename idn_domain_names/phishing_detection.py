@@ -263,7 +263,7 @@ def _detect_html_languages(domain_ip: Optional[IPv4Address],
     return domain_html_lang, homo_html_lang
 
 
-def get_lang_by_ip(ip_addresses: List[Optional[IPv4Address]], lib=grequests) \
+def get_lang_by_ip(ip_addresses: List[Optional[IPv4Address]]) \
         -> List[Optional[str]]:
     """
     Get the htmls' lang attribute for the list of Ipv4Wrapper objects
@@ -282,9 +282,9 @@ def get_lang_by_ip(ip_addresses: List[Optional[IPv4Address]], lib=grequests) \
     """
     if None in ip_addresses:
         return [None] * len(ip_addresses)
-    request = [lib.get('http://' + str(ip_address))
+    request = [grequests.get('http://' + str(ip_address))
                for ip_address in ip_addresses]
-    responses = lib.map(request)
+    responses = grequests.map(request)
     lang_list: List[Optional[str]] = list()
     for ip_address, response in zip(ip_addresses, responses):
         if response is None:
