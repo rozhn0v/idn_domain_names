@@ -11,7 +11,7 @@ class Words:
         self.delegate = delegate
         self.spell_checker = spell_checker
 
-    def spellcheck_words(self, lang: str) -> Words:
+    def spellcheck(self, lang: str) -> Words:
         """
         Correct the spelling for the words in the given list for the given
         language.
@@ -36,9 +36,6 @@ class Words:
             corrected_word = spell_checker.correction(word)
             corrected_word_list.append(corrected_word)
         return Words(corrected_word_list)
-
-    def to_phrase(self) -> str:
-        return ' '.join(self.delegate)
 
     @staticmethod
     def from_phrase(phrase: str) -> Words:
@@ -108,11 +105,9 @@ class CompatibleWords:  # pylint: disable=too-few-public-methods
             translated_word, str(right_word))
         left_words = Words.from_phrase(translated_word)
         right_words = Words.from_phrase(right_phrase)
-        corrected_left_words = left_words.spellcheck_words(target_lang)
-        corrected_right_words = right_words.spellcheck_words(target_lang)
-        corrected_left_phrase = corrected_left_words.to_phrase()
-        corrected_right_phrase = corrected_right_words.to_phrase()
-        return corrected_left_phrase == corrected_right_phrase
+        corrected_left_words = left_words.spellcheck(target_lang)
+        corrected_right_words = right_words.spellcheck(target_lang)
+        return corrected_left_words == corrected_right_words
 
     def check_compatibility(self) -> bool:
         """
