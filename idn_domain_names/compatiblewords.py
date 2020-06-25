@@ -3,8 +3,7 @@ from __future__ import annotations
 from typing import List
 
 from spellchecker import SpellChecker  # type: ignore
-from textblob import TextBlob
-from textblob import exceptions
+from textblob import TextBlob, exceptions
 
 
 def spell_check(phrase: str, lang: str, factory=SpellChecker) -> List[str]:

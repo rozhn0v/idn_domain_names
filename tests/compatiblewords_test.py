@@ -24,17 +24,14 @@ class CompatibleWordsTest(unittest.TestCase):
 
     def test_check_compatibility(self):
         word = TextBlobStub('frasescélebres', 'es', 'frases célebres')
-        homoglyph = TextBlobStub('frasescelebres', 'pt')
+        homo = TextBlobStub('frasescelebres', 'pt')
 
-        phrase_to_checked = {
+        mapping = {
             'frases célebres': 'frases celebres',
             'frases celebres': 'frases celebres'
         }
 
-        def check(phrase, _):
-            return phrase_to_checked[phrase]
-
-        words = CompatibleWords(word, homoglyph, check)
+        words = CompatibleWords(word, homo, lambda phrase, _: mapping[phrase])
         self.assertTrue(words.check_compatibility())
 
     def test_check_compatibility_with_extra_symbol(self):
