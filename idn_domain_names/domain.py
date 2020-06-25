@@ -164,7 +164,6 @@ class Domain:
         return {Domain(dn) for dn in dn_iter if
                 dn != self._fqdn and validators.domain(dn[:-1])}
 
-    # pylint: disable=no-else-return
     def is_cognate_domains(self, homo_domain: Domain) -> int:
         """
             Check for domains with equivalent meaning taking into consideration
@@ -200,3 +199,6 @@ class Domain:
 
     def __str__(self) -> str:
         return self._fqdn
+
+    def __repr__(self) -> str:
+        return str(self)

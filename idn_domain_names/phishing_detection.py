@@ -1,15 +1,13 @@
 import argparse
-import csv
-import gzip
 import logging
 import sys
 from ipaddress import IPv4Address
-from pathlib import Path
 from typing import Iterator, List, Optional, Set, Tuple
 
 import grequests
 from bs4 import BeautifulSoup
 
+import idn_domain_names.filesystem as fs
 import idn_domain_names.ipv4util as ipv4util
 from idn_domain_names.domain import Domain
 
@@ -75,85 +73,6 @@ def parse_args() -> argparse.Namespace:
                         required=True)
 
     return parser.parse_args()
-
-
-def load_phishing_targets(filename: str) -> Set[Domain]:
-    """
-    Creates a generator to the zipped phishing target list (tsv format).
-
-    Parameters
-    ----------
-    filename : str
-        The path to the zipped phishing target list.
-
-    Returns
-    -------
-    Generator of the phishing target list.
-    """
-    result = set()
-    with gzip.open(filename, 'rt') as source:
-        tsv_f = csv.reader(source, delimiter='\t')
-        for line in tsv_f:
-            domain = Domain(line[1] + '.')
-            domain = domain.maybe_truncate_www()
-            if domain.is_idna():
-                domain = domain.to_unicode()
-            result.add(domain)
-    return result
-
-
-def read_datafile(datafile: str) -> Iterator[Domain]:
-    """
-    Create a generator to the domain list to be classified.
-
-    Parameters
-    ----------
-    datafile : str
-        The path to the tsv file containing the list of domain names to be
-        classified.
-
-    Returns
-    -------
-    A generator for the domain list.
-    """
-    if isinstance(datafile, str):
-        domain_list_file = open(datafile, 'r')
-        domain_list_tsv = csv.reader(domain_list_file, delimiter='\t')
-    else:
-        domain_list_file = datafile
-        domain_list_tsv = csv.reader(domain_list_file, delimiter='\t')
-    for line in domain_list_tsv:
-        yield Domain(line[0])
-
-
-def dump_result(domain: Domain, file_path: str,
-                is_phishing: bool) -> None:
-    """
-    Writes the domain and is_phishing value to a file in a csv (comma separated
-    values) format, if file is given, if file is None, appends is_phishing
-    to phishing_list list.
-
-    Parameters
-    ----------
-    domain : str
-        Domain name to write to file, if file is given.
-    file_path : str
-        the information will be written to a file
-    is_phishing : bool
-        Contains the information whether the given domain is a phishing
-        candidate or not.
-    """
-    if not is_phishing:
-        return
-    with open(file_path, 'a+') as output:
-        file_ext = file_path.split('.')[-1]
-        if file_ext == 'csv':
-            output.write('%s,%d\n' % (domain, int(is_phishing)))
-        elif file_ext == 'tsv':
-            output.write('%s\t%d\n' % (domain, int(is_phishing)))
-        else:
-            raise ValueError(
-                'Invalid file_path extension, use TSV or CSV file_path.')
 
 
 def _is_homoglyph_domain_valid(domain_unicode: Domain, homo_domain: Domain,
@@ -264,13 +183,13 @@ def detect_phishing(domains_to_check: Iterator[Domain],
             log.debug('target %s is unresolvable, skip', domain)
             continue
 
-        false_true_counter = 0
+        phishing_points = 0
         for homo_domain in homoglyph_domains:
-            false_true_counter += (
+            phishing_points += (
                 _is_homoglyph_domain_valid(domain_unicode, homo_domain,
                                            ip_table, domain_asn))
-        is_phishing = false_true_counter < 0
-        dump_result(domain, path_to_output, is_phishing)
+        if phishing_points < 0:
+            fs.report_phishing(domain, path_to_output)
 
 
 def _language_check(domain_unicode: Domain, homo_domain: Domain,
@@ -307,20 +226,6 @@ def _language_check(domain_unicode: Domain, homo_domain: Domain,
     else:
         false_true_counter -= 1
     return false_true_counter
-
-
-def _delete_if_present(path: str):
-    """
-    Check if the file of the given path exists, if it does, it's deleted.
-
-    Parameters
-    ----------
-    path : str
-        A path to a file.
-    """
-    file_obj = Path(path)
-    if file_obj.exists():
-        file_obj.unlink()
 
 
 def _detect_html_languages(domain_ip: Optional[IPv4Address],
@@ -401,9 +306,9 @@ def main() -> None:
     args = parse_args()
 
     ip_table = ipv4util.load_ipv4_table(args.ipv4_table)
-    phishing_targets = load_phishing_targets(args.phishing_targets)
-    domains_to_check = read_datafile(args.domain_list)
-    _delete_if_present(args.output_file)
+    phishing_targets = fs.load_phishing_targets(args.phishing_targets)
+    domains_to_check = fs.read_datafile(args.domain_list)
+    fs.delete_if_present(args.output_file)
 
     detect_phishing(domains_to_check, ip_table, phishing_targets,
                     args.output_file)
