@@ -1,6 +1,9 @@
 import unittest
+from unittest.mock import Mock
+from unittest.mock import PropertyMock
+from unittest.mock import patch
+
 from ipaddress import IPv4Address
-from unittest.mock import ANY, Mock, PropertyMock, patch
 
 import idn_domain_names.pipeline as pipeline
 from idn_domain_names.domain import Domain
@@ -52,20 +55,49 @@ class PhishingDetectionTest(unittest.TestCase):
         self.assertEqual(['ru'], actual)
         g_get.assert_called()
 
-    @patch('idn_domain_names.pipeline._is_homoglyph_domain_valid')
-    @patch('idn_domain_names.filesystem.report_phishing')
-    def test_detect_phishing(self, report_phishing, domain_validation):
+    def test_detect_phishing_when_asn_match(self):
         phishing = Domain('xn--bcher-kva.tld.')
-        delegate = {phishing: ('0.0.0.0', 1)}
+        homo = Domain('bucher.tld.')
+
+        delegate = {phishing: ('0.0.0.0', 1), homo: ('0.0.0.0', 1)}
         table = Mock()
         table.get_ip_and_asn = lambda k: delegate[k]
 
-        domain_validation.return_value = -1
+        pipe = pipeline.Pipeline(table, dummy_domain_filter, Mock())
 
-        pipeline.detect_phishing(domains_to_check=[phishing],
-                                 ip_table=table,
-                                 phishing_targets={Domain('bucher.tld.')},
-                                 path_to_output='unused')
+        actual = pipe.detect_phishing(domains_to_check=[phishing],
+                                      phishing_targets={homo})
+        self.assertFalse(list(actual))
 
-        report_phishing.assert_called_with(phishing, ANY)
-        self.assertTrue(domain_validation.mock_calls)
+    def test_detect_phishing_when_homo_unresolved(self):
+        phishing = Domain('xn--bcher-kva.tld.')
+        homo = Domain('bucher.tld.')
+
+        delegate = {phishing: ('0.0.0.0', 1), homo: (None, None)}
+        table = Mock()
+        table.get_ip_and_asn = lambda k: delegate[k]
+
+        pipe = pipeline.Pipeline(table, dummy_domain_filter, Mock())
+
+        actual = pipe.detect_phishing(domains_to_check=[phishing],
+                                      phishing_targets={homo})
+        self.assertFalse(list(actual))
+
+    def test_detect_phishing_when_negative_lang_check_and_different_asn(self):
+        phishing = Domain('xn--bcher-kva.tld.')
+        homo = Domain('bucher.tld.')
+
+        delegate = {phishing: ('0.0.0.0', 1), homo: ('1.1.1.1', 123)}
+        table = Mock()
+        table.get_ip_and_asn = lambda k: delegate[k]
+
+        pipe = pipeline.Pipeline(table, dummy_domain_filter,
+                                 Mock(return_value=-1))
+
+        actual = pipe.detect_phishing(domains_to_check=[phishing],
+                                      phishing_targets={homo})
+        self.assertEqual([phishing], list(actual))
+
+
+def dummy_domain_filter(domains):
+    return [(domain, domain.to_unicode()) for domain in domains]
