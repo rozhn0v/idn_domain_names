@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup
 
 from idn_domain_names import ipv4util
 from idn_domain_names.domain import Domain
+from idn_domain_names.ipv4util import IpTable
 
 log = logging.getLogger('app')  # pylint: disable=invalid-name
 
@@ -21,26 +22,16 @@ class Pipeline:
         self.domain_filter = domain_filter
         self.lang_check = lang_check
 
+    @staticmethod
+    def create(ip_table: IpTable):
+        return Pipeline(ip_table, valid_punycode_filter, _language_check)
+
     def detect_phishing(self, domains_to_check: Iterator[Domain],
                         phishing_targets: Set[Domain]) -> Iterator[Domain]:
         """
-        Classify the provided domains in the datafile tsv file list which domains
-        are suspicious to be a phishing domain from the phishing detection routine,
-        if file is provided. If not, returns a list is_phishing_list containing
-        the results.
-
-        Parameters
-        ----------
-        domains_to_check : iterable of possible phishing domains.
-        phishing_targets : Set[Domains]
-            set of phishing targets
-
-        Returns
-        -------
-        iterator of phishing domains
+        Yields found phishing domains
 
         """
-
         for (domain, domain_unicode) in self.domain_filter(domains_to_check):
             # If a domain is phishing, there possibly be more domains with
             # different ASN than the same. though, two domains could belong
@@ -70,8 +61,8 @@ class Pipeline:
                                    homo_domain: Domain,
                                    domain_asn: str) -> int:
         """
-        Check if homoglyph domain is a valid evidence that the domain_unicode is
-        a phishing domain.
+        Check if homoglyph domain is a valid evidence that the domain_unicode
+        is a phishing domain.
 
         Parameters
         ----------
@@ -87,7 +78,8 @@ class Pipeline:
         int
             1, if the homoglyph domain belongs to the same entity as
             domain_unicode. 0, if the homoglyph domain is dead. -1 if the
-            homoglyph domain is a valid evidence that domain_unicode is phishing.
+            homoglyph domain is a valid evidence that domain_unicode is
+            phishing.
         """
         homoglyph_ip, homoglyph_asn = self.ip_table.get_ip_and_asn(homo_domain)
         if homoglyph_ip is None or homoglyph_asn is None:
