@@ -1,9 +1,6 @@
 import unittest
-from unittest.mock import Mock
-from unittest.mock import PropertyMock
-from unittest.mock import patch
-
 from ipaddress import IPv4Address
+from unittest.mock import Mock, PropertyMock, patch
 
 import idn_domain_names.pipeline as pipeline
 from idn_domain_names.domain import Domain
@@ -79,8 +76,10 @@ class PipelineTest(unittest.TestCase):
     homo = Domain('bucher.tld.')
 
     def test_detect_phishing_when_asn_match(self):
-        table = PipelineTest.make_table_stub(
-            {self.phishing: ('0.0.0.0', 1), self.homo: ('0.0.0.0', 1)})
+        table = PipelineTest.make_table_stub({
+            self.phishing: ('0.0.0.0', 1),
+            self.homo: ('0.0.0.0', 1)
+        })
 
         pipe = pipeline.Pipeline(table, PipelineTest.dummy_domain_filter, None)
 
@@ -88,8 +87,10 @@ class PipelineTest(unittest.TestCase):
         self.assertFalse(list(actual))
 
     def test_detect_phishing_when_homo_unresolved(self):
-        table = PipelineTest.make_table_stub(
-            {self.phishing: ('0.0.0.0', 1), self.homo: (None, None)})
+        table = PipelineTest.make_table_stub({
+            self.phishing: ('0.0.0.0', 1),
+            self.homo: (None, None)
+        })
 
         pipe = pipeline.Pipeline(table, PipelineTest.dummy_domain_filter, None)
 
@@ -97,10 +98,13 @@ class PipelineTest(unittest.TestCase):
         self.assertFalse(list(actual))
 
     def test_detect_phishing_when_negative_lang_check_and_different_asn(self):
-        table = PipelineTest.make_table_stub(
-            {self.phishing: ('0.0.0.0', 1), self.homo: ('1.1.1.1', 123)})
+        table = PipelineTest.make_table_stub({
+            self.phishing: ('0.0.0.0', 1),
+            self.homo: ('1.1.1.1', 123)
+        })
 
-        pipe = pipeline.Pipeline(table, PipelineTest.dummy_domain_filter,
+        pipe = pipeline.Pipeline(table,
+                                 PipelineTest.dummy_domain_filter,
                                  lang_check=Mock(return_value=-1))
 
         actual = pipe.detect_phishing([self.phishing], {self.homo})
@@ -109,7 +113,8 @@ class PipelineTest(unittest.TestCase):
     def test_detect_phishing_when_no_intersections(self):
         table = Mock()
 
-        pipe = pipeline.Pipeline(table, PipelineTest.dummy_domain_filter,
+        pipe = pipeline.Pipeline(table,
+                                 PipelineTest.dummy_domain_filter,
                                  lang_check=Mock(return_value=-1))
 
         actual = pipe.detect_phishing([self.phishing], {Domain('foo.bar.')})
@@ -120,7 +125,8 @@ class PipelineTest(unittest.TestCase):
         table = Mock()
         table.get_ip_and_asn.return_value = (None, None)
 
-        pipe = pipeline.Pipeline(table, PipelineTest.dummy_domain_filter,
+        pipe = pipeline.Pipeline(table,
+                                 PipelineTest.dummy_domain_filter,
                                  lang_check=Mock(return_value=-1))
 
         actual = pipe.detect_phishing([self.phishing], {self.homo})

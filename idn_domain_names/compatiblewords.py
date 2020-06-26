@@ -38,7 +38,9 @@ def spell_check(phrase: str, lang: str, factory=SpellChecker) -> List[str]:
 
 
 class CompatibleWords:  # pylint: disable=too-few-public-methods
-    def __init__(self, word: TextBlob, homoglyph: TextBlob,
+    def __init__(self,
+                 word: TextBlob,
+                 homoglyph: TextBlob,
                  checker=spell_check):
         self._spell_check = checker
         self._word = word
@@ -65,8 +67,8 @@ class CompatibleWords:  # pylint: disable=too-few-public-methods
             word_to_translate.detect_language(), target_lang)
         return str(translation)
 
-    def _check_compatibility_left_to_right(
-            self, left_word: TextBlob, right_word: TextBlob) -> bool:
+    def _check_compatibility_left_to_right(self, left_word: TextBlob,
+                                           right_word: TextBlob) -> bool:
         """
         Check the words' compatibility from left to right.
 
@@ -107,16 +109,16 @@ class CompatibleWords:  # pylint: disable=too-few-public-methods
 
         try:
             left_to_right_compatible = (
-                self._check_compatibility_left_to_right(self._word,
-                                                        self._homo))
+                self._check_compatibility_left_to_right(
+                    self._word, self._homo))
             if left_to_right_compatible:
                 return True
         except exceptions.NotTranslated:
             pass
 
         try:
-            return self._check_compatibility_left_to_right(self._homo,
-                                                           self._word)
+            return self._check_compatibility_left_to_right(
+                self._homo, self._word)
         except exceptions.NotTranslated:
             return False
 

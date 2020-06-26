@@ -171,8 +171,8 @@ def _detect_html_languages(domain_ip: Optional[IPv4Address],
         A tuple containing the "lang" attribute for the domain html, and the
         homoglyph domain html, respectively.
     """
-    domain_html_lang, homo_html_lang = get_lang_by_ip([domain_ip,
-                                                       homoglyph_ip])
+    domain_html_lang, homo_html_lang = get_lang_by_ip(
+        [domain_ip, homoglyph_ip])
     if domain_html_lang is None:
         if homo_html_lang is not None:
             domain_html_lang = homo_html_lang
@@ -205,8 +205,10 @@ def get_lang_by_ip(ip_addresses: List[Optional[IPv4Address]]) \
     """
     if None in ip_addresses:
         return [None] * len(ip_addresses)
-    request = [grequests.get('http://' + str(ip_address))
-               for ip_address in ip_addresses]
+    request = [
+        grequests.get('http://' + str(ip_address))
+        for ip_address in ip_addresses
+    ]
     responses = grequests.map(request)
     lang_list: List[Optional[str]] = list()
     for ip_address, response in zip(ip_addresses, responses):
