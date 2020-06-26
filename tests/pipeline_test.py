@@ -9,14 +9,28 @@ import idn_domain_names.pipeline as pipeline
 from idn_domain_names.domain import Domain
 
 
-class PhishingDetectionTest(unittest.TestCase):
+# pylint: disable=protected-access
+class ValidPunycodeFilterTest(unittest.TestCase):
     def test_valid_punycode_filter(self):
         punycode = Domain('xn--bcher-kva.tld.')
-        actual = pipeline.valid_punycode_filter([punycode])
+
+        actual = pipeline._valid_punycode_filter([punycode])
         actual = next(actual)
+
         expected = (punycode, Domain('bücher.tld.'))
         self.assertEqual(expected, actual)
 
+    def test_valid_punycode_filter_with_dropped_values(self):
+        ascii_domain = Domain('foo.bar.')
+        broken = Mock(spec=Domain)
+        broken.maybe_truncate_www = Mock(side_effect=UnicodeError('fail'))
+
+        actual = pipeline._valid_punycode_filter([ascii_domain, broken])
+
+        self.assertFalse(list(actual))
+
+
+class GetLangByIpTest(unittest.TestCase):
     @patch('grequests.get')
     @patch('grequests.map')
     def test_get_lang_by_ip_when_response_is_none(self, g_map, g_get):

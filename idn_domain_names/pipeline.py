@@ -1,49 +1,47 @@
 import logging
-from typing import Iterator
-from typing import List
-from typing import Optional
-from typing import Set
-from typing import Tuple
-
 from ipaddress import IPv4Address
+from typing import Callable, Iterator, List, Optional, Set, Tuple
+
 import grequests
 from bs4 import BeautifulSoup
 
-from idn_domain_names import ipv4util
 from idn_domain_names.domain import Domain
 from idn_domain_names.ipv4util import IpTable
 
 log = logging.getLogger('app')  # pylint: disable=invalid-name
 
+FilterType = Callable[[Iterator[Domain]], Iterator[Tuple[Domain, Domain]]]
+LangCheckType = Callable[[Domain, Domain, IpTable], int]
+
 
 class Pipeline:
-    def __init__(self, ip_table, domain_filter, lang_check):
-        self.ip_table = ip_table
-        self.domain_filter = domain_filter
-        self.lang_check = lang_check
+    def __init__(self, ip_table: IpTable, domain_filter: FilterType,
+                 lang_check: LangCheckType):
+        self._ip_table = ip_table
+        self._domain_filter = domain_filter
+        self._lang_check = lang_check
 
     @staticmethod
     def create(ip_table: IpTable):
-        return Pipeline(ip_table, valid_punycode_filter, _language_check)
+        return Pipeline(ip_table, _valid_punycode_filter, _language_check)
 
-    def detect_phishing(self, domains_to_check: Iterator[Domain],
-                        phishing_targets: Set[Domain]) -> Iterator[Domain]:
+    def detect_phishing(self, domains: Iterator[Domain],
+                        targets: Set[Domain]) -> Iterator[Domain]:
         """
         Yields found phishing domains
 
         """
-        for (domain, domain_unicode) in self.domain_filter(domains_to_check):
+        for (domain, domain_unicode) in self._domain_filter(domains):
             # If a domain is phishing, there possibly be more domains with
             # different ASN than the same. though, two domains could belong
             # to the same ASN and one could be phishing,
             # if the ASN is of a ISP (not explored)
             homoglyph_domains = domain_unicode.generate_possible_confusions()
-            homoglyph_domains = phishing_targets.intersection(
-                homoglyph_domains)
+            homoglyph_domains = targets.intersection(homoglyph_domains)
             if not homoglyph_domains:
                 continue
 
-            domain_ip, domain_asn = self.ip_table.get_ip_and_asn(domain)
+            domain_ip, domain_asn = self._ip_table.get_ip_and_asn(domain)
             if domain_ip is None or domain_asn is None:
                 log.debug('target %s is unresolvable, skip', domain)
                 continue
@@ -51,9 +49,7 @@ class Pipeline:
             phishing_points = 0
             for homo_domain in homoglyph_domains:
                 phishing_points += self._calculate_phishing_points(
-                    domain_unicode,
-                    homo_domain,
-                    domain_asn)
+                    domain_unicode, homo_domain, domain_asn)
             if phishing_points < 0:
                 yield domain
 
@@ -81,16 +77,16 @@ class Pipeline:
             homoglyph domain is a valid evidence that domain_unicode is
             phishing.
         """
-        homoglyph_ip, homoglyph_asn = self.ip_table.get_ip_and_asn(homo_domain)
-        if homoglyph_ip is None or homoglyph_asn is None:
+        suspect_ip, suspect_asn = self._ip_table.get_ip_and_asn(homo_domain)
+        if suspect_ip is None or suspect_asn is None:
             log.debug('domain %s is unresolvable, skip', homo_domain)
             return 0
-        if domain_asn == homoglyph_asn:
+        if domain_asn == suspect_asn:
             return 1
-        return self.lang_check(domain_unicode, homo_domain, self.ip_table)
+        return self._lang_check(domain_unicode, homo_domain, self._ip_table)
 
 
-def valid_punycode_filter(domains: Iterator[Domain]) \
+def _valid_punycode_filter(domains: Iterator[Domain]) \
         -> Iterator[Tuple[Domain, Domain]]:
     """
     Filter valid punycode domains on domains iterator and returns the punycode
@@ -120,7 +116,7 @@ def valid_punycode_filter(domains: Iterator[Domain]) \
 
 
 def _language_check(domain_unicode: Domain, homo_domain: Domain,
-                    ip_table: ipv4util.IpTable) -> int:
+                    ip_table: IpTable) -> int:
     """
     Check if the languages for the domain_unicode and homo_domain, and its
     html are potentially the same.
