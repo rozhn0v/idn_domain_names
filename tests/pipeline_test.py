@@ -69,6 +69,10 @@ class GetLangByIpTest(unittest.TestCase):
         self.assertEqual(['ru'], actual)
         g_get.assert_called()
 
+    def test_get_lang_by_ip_when_none_is_passed(self):
+        actual = pipeline.get_lang_by_ip([IPv4Address('1.2.3.4'), None])
+        self.assertEqual([None, None], actual)
+
 
 class PipelineTest(unittest.TestCase):
     phishing = Domain('xn--bcher-kva.tld.')
@@ -84,29 +88,44 @@ class PipelineTest(unittest.TestCase):
         self.assertFalse(list(actual))
 
     def test_detect_phishing_when_homo_unresolved(self):
-        phishing = Domain('xn--bcher-kva.tld.')
-        homo = Domain('bucher.tld.')
-
         table = PipelineTest.make_table_stub(
-            {phishing: ('0.0.0.0', 1), homo: (None, None)})
+            {self.phishing: ('0.0.0.0', 1), self.homo: (None, None)})
 
         pipe = pipeline.Pipeline(table, PipelineTest.dummy_domain_filter, None)
 
-        actual = pipe.detect_phishing([phishing], {homo})
+        actual = pipe.detect_phishing([self.phishing], {self.homo})
         self.assertFalse(list(actual))
 
     def test_detect_phishing_when_negative_lang_check_and_different_asn(self):
-        phishing = Domain('xn--bcher-kva.tld.')
-        homo = Domain('bucher.tld.')
-
         table = PipelineTest.make_table_stub(
-            {phishing: ('0.0.0.0', 1), homo: ('1.1.1.1', 123)})
+            {self.phishing: ('0.0.0.0', 1), self.homo: ('1.1.1.1', 123)})
 
         pipe = pipeline.Pipeline(table, PipelineTest.dummy_domain_filter,
                                  lang_check=Mock(return_value=-1))
 
-        actual = pipe.detect_phishing([phishing], {homo})
-        self.assertEqual([phishing], list(actual))
+        actual = pipe.detect_phishing([self.phishing], {self.homo})
+        self.assertEqual([self.phishing], list(actual))
+
+    def test_detect_phishing_when_no_intersections(self):
+        table = Mock()
+
+        pipe = pipeline.Pipeline(table, PipelineTest.dummy_domain_filter,
+                                 lang_check=Mock(return_value=-1))
+
+        actual = pipe.detect_phishing([self.phishing], {Domain('foo.bar.')})
+        self.assertFalse(list(actual))
+        table.get_ip_and_asn.assert_not_called()
+
+    def test_detect_phishing_when_phishing_unresolved(self):
+        table = Mock()
+        table.get_ip_and_asn.return_value = (None, None)
+
+        pipe = pipeline.Pipeline(table, PipelineTest.dummy_domain_filter,
+                                 lang_check=Mock(return_value=-1))
+
+        actual = pipe.detect_phishing([self.phishing], {self.homo})
+        self.assertFalse(list(actual))
+        table.get_ip_and_asn.assert_called_with(self.phishing)
 
     @staticmethod
     def make_table_stub(mapping):
