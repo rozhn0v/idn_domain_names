@@ -1,53 +1,92 @@
 import logging
 from ipaddress import IPv4Address
-from typing import Iterator, List, Optional, Set, Tuple
+from typing import Callable, Iterator, List, Optional, Set, Tuple
 
 import grequests
 from bs4 import BeautifulSoup
 
-import idn_domain_names.filesystem as fs
-from idn_domain_names import ipv4util
 from idn_domain_names.domain import Domain
+from idn_domain_names.ipv4util import IpTable
 
 log = logging.getLogger('app')  # pylint: disable=invalid-name
 
-
-def _is_homoglyph_domain_valid(domain_unicode: Domain, homo_domain: Domain,
-                               ip_table: ipv4util.IpTable,
-                               domain_asn: str) -> int:
-    """
-    Check if homoglyph domain is a valid evidence that the domain_unicode is
-    a phishing domain.
-
-    Parameters
-    ----------
-    domain_unicode : Domain
-        The suspect phishing idn.
-    homo_domain : Domain
-        A homoglyph of domain_unicode.
-    ip_table : ipv4util.IpTable
-        table of IPs and ASNs.
-    domain_asn : str
-        The ASN of domain_unicode.
-
-    Returns
-    -------
-    int
-        1, if the homoglyph domain belongs to the same entity as
-        domain_unicode. 0, if the homoglyph domain is dead. -1 if the
-        homoglyph domain is a valid evidence that domain_unicode is phishing.
-    """
-    homoglyph_ip, homoglyph_asn = ip_table.get_ip_and_asn(homo_domain)
-    if homoglyph_ip is None or homoglyph_asn is None:
-        log.debug('domain %s is unresolvable, skip', homo_domain)
-        return 0
-    if domain_asn == homoglyph_asn:
-        return 1
-    lang_check = _language_check(domain_unicode, homo_domain, ip_table)
-    return lang_check
+FilterType = Callable[[Iterator[Domain]], Iterator[Tuple[Domain, Domain]]]
+LangCheckType = Callable[[Domain, Domain, IpTable], int]
 
 
-def valid_punycode_filter(domains: Iterator[Domain]) \
+class Pipeline:
+    def __init__(self, ip_table: IpTable, domain_filter: FilterType,
+                 lang_check: LangCheckType):
+        self._ip_table = ip_table
+        self._domain_filter = domain_filter
+        self._lang_check = lang_check
+
+    @staticmethod
+    def create(ip_table: IpTable):
+        return Pipeline(ip_table, _valid_punycode_filter, _language_check)
+
+    def detect_phishing(self, domains: Iterator[Domain],
+                        targets: Set[Domain]) -> Iterator[Domain]:
+        """
+        Yields found phishing domains
+
+        """
+        for (domain, domain_unicode) in self._domain_filter(domains):
+            # If a domain is phishing, there possibly be more domains with
+            # different ASN than the same. though, two domains could belong
+            # to the same ASN and one could be phishing,
+            # if the ASN is of a ISP (not explored)
+            homoglyph_domains = domain_unicode.generate_possible_confusions()
+            homoglyph_domains = targets.intersection(homoglyph_domains)
+            if not homoglyph_domains:
+                continue
+
+            domain_ip, domain_asn = self._ip_table.get_ip_and_asn(domain)
+            if domain_ip is None or domain_asn is None:
+                log.debug('target %s is unresolvable, skip', domain)
+                continue
+
+            phishing_points = 0
+            for homo_domain in homoglyph_domains:
+                phishing_points += self._calculate_phishing_points(
+                    domain_unicode, homo_domain, domain_asn)
+            if phishing_points < 0:
+                yield domain
+
+    def _calculate_phishing_points(self, domain_unicode: Domain,
+                                   homo_domain: Domain,
+                                   domain_asn: str) -> int:
+        """
+        Check if homoglyph domain is a valid evidence that the domain_unicode
+        is a phishing domain.
+
+        Parameters
+        ----------
+        domain_unicode : Domain
+            The suspect phishing idn.
+        homo_domain : Domain
+            A homoglyph of domain_unicode.
+        domain_asn : str
+            The ASN of domain_unicode.
+
+        Returns
+        -------
+        int
+            1, if the homoglyph domain belongs to the same entity as
+            domain_unicode. 0, if the homoglyph domain is dead. -1 if the
+            homoglyph domain is a valid evidence that domain_unicode is
+            phishing.
+        """
+        suspect_ip, suspect_asn = self._ip_table.get_ip_and_asn(homo_domain)
+        if suspect_ip is None or suspect_asn is None:
+            log.debug('domain %s is unresolvable, skip', homo_domain)
+            return 0
+        if domain_asn == suspect_asn:
+            return 1
+        return self._lang_check(domain_unicode, homo_domain, self._ip_table)
+
+
+def _valid_punycode_filter(domains: Iterator[Domain]) \
         -> Iterator[Tuple[Domain, Domain]]:
     """
     Filter valid punycode domains on domains iterator and returns the punycode
@@ -76,61 +115,8 @@ def valid_punycode_filter(domains: Iterator[Domain]) \
             log.debug('failed to convert %s, report as non-phishing', domain)
 
 
-def detect_phishing(domains_to_check: Iterator[Domain],
-                    ip_table: ipv4util.IpTable,
-                    phishing_targets: Set[Domain],
-                    path_to_output: str) -> None:
-    """
-    Classify the provided domains in the datafile tsv file list which domains
-    are suspicious to be a phishing domain from the phishing detection routine,
-    if file is provided. If not, returns a list is_phishing_list containing
-    the results.
-
-    Parameters
-    ----------
-    domains_to_check : iterable of possible phishing domains.
-    ip_table : ipv4util.IpTable
-        table of IPs and ASNs.
-    phishing_targets : Set[Domains]
-        set of phishing targets
-    path_to_output : str
-        A valid file path in which to write the results of the phishing
-        detection, in a csv (comma separated value) format.
-
-    Returns
-    -------
-    is_phishing_list : list of int or None
-        If a valid file path is provided, returns None and writes the results
-        to a csv file defined in the global variable PHISHINGFILE, if None,
-        returns a list containing the results of the detection routine.
-
-    """
-    for (domain, domain_unicode) in valid_punycode_filter(domains_to_check):
-        # If a domain is phishing, there possibly be more domains with
-        # different ASN than the same. though, two domains could belong
-        # to the same ASN and one could be phishing,
-        # if the ASN is of a ISP (not explored)
-        homoglyph_domains = domain_unicode.generate_possible_confusions()
-        homoglyph_domains = phishing_targets.intersection(homoglyph_domains)
-        if not homoglyph_domains:
-            continue
-
-        domain_ip, domain_asn = ip_table.get_ip_and_asn(domain)
-        if domain_ip is None or domain_asn is None:
-            log.debug('target %s is unresolvable, skip', domain)
-            continue
-
-        phishing_points = 0
-        for homo_domain in homoglyph_domains:
-            phishing_points += (
-                _is_homoglyph_domain_valid(domain_unicode, homo_domain,
-                                           ip_table, domain_asn))
-        if phishing_points < 0:
-            fs.report_phishing(domain, path_to_output)
-
-
 def _language_check(domain_unicode: Domain, homo_domain: Domain,
-                    ip_table: ipv4util.IpTable) -> int:
+                    ip_table: IpTable) -> int:
     """
     Check if the languages for the domain_unicode and homo_domain, and its
     html are potentially the same.
@@ -185,8 +171,8 @@ def _detect_html_languages(domain_ip: Optional[IPv4Address],
         A tuple containing the "lang" attribute for the domain html, and the
         homoglyph domain html, respectively.
     """
-    domain_html_lang, homo_html_lang = get_lang_by_ip([domain_ip,
-                                                       homoglyph_ip])
+    domain_html_lang, homo_html_lang = get_lang_by_ip(
+        [domain_ip, homoglyph_ip])
     if domain_html_lang is None:
         if homo_html_lang is not None:
             domain_html_lang = homo_html_lang
@@ -219,8 +205,10 @@ def get_lang_by_ip(ip_addresses: List[Optional[IPv4Address]]) \
     """
     if None in ip_addresses:
         return [None] * len(ip_addresses)
-    request = [grequests.get('http://' + str(ip_address))
-               for ip_address in ip_addresses]
+    request = [
+        grequests.get('http://' + str(ip_address))
+        for ip_address in ip_addresses
+    ]
     responses = grequests.map(request)
     lang_list: List[Optional[str]] = list()
     for ip_address, response in zip(ip_addresses, responses):

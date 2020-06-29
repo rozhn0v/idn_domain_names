@@ -79,7 +79,6 @@ class Domain:
             A list containing the indexes of the domain name,
             in a dot-separated fashion, where valid punycode can be found.
         """
-
         def has_xn(string):
             return 'xn--' in string
 
@@ -161,8 +160,11 @@ class Domain:
             else:
                 dn_lists.append([dn_part])
         dn_iter = map('.'.join, product(*dn_lists))
-        return {Domain(dn) for dn in dn_iter if
-                dn != self._fqdn and validators.domain(dn[:-1])}
+        return {
+            Domain(dn)
+            for dn in dn_iter
+            if dn != self._fqdn and validators.domain(dn[:-1])
+        }
 
     def is_cognate_domains(self, homo_domain: Domain) -> int:
         """

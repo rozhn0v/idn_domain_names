@@ -4,7 +4,7 @@ import sys
 
 import idn_domain_names.filesystem as fs
 import idn_domain_names.ipv4util as ipv4util
-import idn_domain_names.pipeline as pipeline
+from idn_domain_names.pipeline import Pipeline
 
 log = logging.getLogger('app')  # pylint: disable=invalid-name
 
@@ -79,8 +79,9 @@ def main() -> None:
     domains_to_check = fs.read_datafile(args.domain_list)
     fs.delete_if_present(args.output_file)
 
-    pipeline.detect_phishing(domains_to_check, ip_table, phishing_targets,
-                             args.output_file)
+    pipe = Pipeline.create(ip_table)
+    for domain in pipe.detect_phishing(domains_to_check, phishing_targets):
+        fs.report_phishing(domain, args.output_file)
 
 
 if __name__ == '__main__':
