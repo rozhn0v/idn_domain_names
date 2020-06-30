@@ -36,8 +36,7 @@ def parse_targets_source(source: Iterator[str]) -> Set[Domain]:
             try:
                 domain = domain.to_unicode()
             except UnicodeError:
-                log.debug('failed to convert %s, don\'t add to targets\' list',
-                          domain)
+                log.debug('failed to convert %s, skip', domain)
                 continue
         result.add(domain)
     return result
@@ -63,7 +62,7 @@ def read_datafile(datafile) -> Iterator[Domain]:
         domain_list_file = datafile
     for line in domain_list_file:
         line = line.rstrip('\n')
-        if line[-1] != '.':
+        if not line.endswith('.'):
             line += '.'
         yield Domain(line)
 
