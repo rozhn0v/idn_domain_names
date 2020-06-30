@@ -4,6 +4,7 @@ Python_3.8/
 .idea/
 **/__pycache__/
 perfomance/
+jenkins_pipeline/
 phishing.log
 env
 MANIFEST

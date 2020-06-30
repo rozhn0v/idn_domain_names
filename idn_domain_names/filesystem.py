@@ -1,9 +1,12 @@
+import logging
 import csv
 import gzip
 from pathlib import Path
 from typing import Iterator, Set
 
 from idn_domain_names.domain import Domain
+
+log = logging.getLogger('app')  # pylint: disable=invalid-name
 
 
 def load_phishing_targets(filename: str) -> Set[Domain]:
@@ -30,7 +33,12 @@ def parse_targets_source(source: Iterator[str]) -> Set[Domain]:
         domain = Domain(line[1] + '.')
         domain = domain.maybe_truncate_www()
         if domain.is_idna():
-            domain = domain.to_unicode()
+            try:
+                domain = domain.to_unicode()
+            except UnicodeError:
+                log.debug('failed to convert %s, don\'t add to targets\' list',
+                          domain)
+                continue
         result.add(domain)
     return result
 
@@ -54,6 +62,9 @@ def read_datafile(datafile) -> Iterator[Domain]:
     else:
         domain_list_file = datafile
     for line in domain_list_file:
+        line = line.rstrip('\n')
+        if line[-1] != '.':
+            line += '.'
         yield Domain(line)
 
 

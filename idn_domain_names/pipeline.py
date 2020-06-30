@@ -40,7 +40,6 @@ class Pipeline:
             homoglyph_domains = targets.intersection(homoglyph_domains)
             if not homoglyph_domains:
                 continue
-
             domain_ip, domain_asn = self._ip_table.get_ip_and_asn(domain)
             if domain_ip is None or domain_asn is None:
                 log.debug('target %s is unresolvable, skip', domain)
